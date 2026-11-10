@@ -1,6 +1,6 @@
 """Benchmark the same global_median model served by Python chapkit and by chapkit-rs.
 
-    python3 bench/run.py            (from the chapkit-rs-examples root, after `make release`)
+    python3 bench/run.py            (from the chapkit-rs-models root, after `make release`)
 
 Runs each service as a real process on localhost and measures:
 

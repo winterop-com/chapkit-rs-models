@@ -1,4 +1,4 @@
-//! Helpers shared by the baseline examples, which forecast with the empirical
+//! Helpers shared by the baseline models, which forecast with the empirical
 //! distribution of observed values. Port of `chap_core/models/builtin/empirical.py`,
 //! plus `GlobalMedianSamples`, which the seasonal median falls back on.
 //!

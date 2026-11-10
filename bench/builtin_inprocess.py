@@ -1,6 +1,6 @@
 """Time chap-core's built-in global_median in-process, on the benchmark dataset.
 
-    ../../chap-core/.venv/bin/python bench/builtin_inprocess.py   (from the chapkit-rs-examples root)
+    ../../chap-core/.venv/bin/python bench/builtin_inprocess.py   (from the chapkit-rs-models root)
 
 Starts the Rust service once to generate the same dataset as bench/run.py (same seed and size),
 then times train + predict of chap_core.models.builtin GlobalMedian with no HTTP, no jobs.

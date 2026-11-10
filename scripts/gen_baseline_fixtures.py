@@ -1,6 +1,6 @@
 """Generate golden outputs from chap-core's built-in baselines.
 
-Run with chap-core's environment, from the chapkit-rs-examples root:
+Run with chap-core's environment, from the chapkit-rs-models root:
 
     ../../chap-core/.venv/bin/python scripts/gen_baseline_fixtures.py
 

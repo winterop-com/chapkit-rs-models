@@ -1,10 +1,11 @@
-# chapkit-rs-examples
+# chapkit-rs-models
 
-Example model projects for [chapkit-rs](../chapkit-rs). Each crate is laid out the way a real model project
-would be: it depends on `chapkit`, implements the `Model` trait, and gets the full chapkit-compatible HTTP
+Model packages for [chapkit-rs](https://github.com/winterop-com/chapkit-rs). Each crate is laid out the way
+a real model project would be: it depends on `chapkit`, implements the `Model` trait, and gets the full chapkit-compatible HTTP
 API (so chap-core can use it unchanged) from `chapkit::Service`.
 
-The library is expected as a sibling checkout: `chap-workspace/rs/chapkit-rs` next to this repository.
+The library is expected as a sibling checkout: clone `chapkit-rs` next to this repository
+(`chap-workspace/rs/chapkit-rs` and `chap-workspace/rs/chapkit-rs-models`).
 
 | crate | what |
 |---|---|

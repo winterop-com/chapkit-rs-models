@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 //! The Rust baselines must reproduce chap-core's built-in baselines number for number.
-//! The models are the example ports under `examples/`; fixtures come from
+//! The models are the ports in this crate; fixtures come from
 //! `scripts/gen_baseline_fixtures.py` (run against chap-core).
 
 use std::collections::HashMap;
