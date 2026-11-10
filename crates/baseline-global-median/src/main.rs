@@ -7,6 +7,7 @@
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     baseline_core::run(
         "global-median",
+        env!("CARGO_PKG_VERSION"),
         "Global median (crs)",
         baseline_global_median::GlobalMedian,
         chapkit::NoConfig {},

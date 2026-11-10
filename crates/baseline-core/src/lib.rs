@@ -43,8 +43,12 @@ pub fn info(note: &str, page: &str) -> ModelInfo {
 
 /// A baseline binary's `main`: serve `model` as a chapkit service on `HOST:PORT`, or, with the
 /// argument `demo`, train and predict once in-process on the chap-core fixture and print it.
+///
+/// `version` is the binary's crate version. chap-core stores a model template once per version,
+/// so every published change to a model needs a new version.
 pub async fn run<M: Model>(
     id: &str,
+    version: &str,
     title: &str,
     model: M,
     config: M::Config,
@@ -53,6 +57,7 @@ pub async fn run<M: Model>(
         return fixture::demo(id, &model, &config);
     }
     chapkit::Service::new(id, title, model)
+        .version(version)
         .description(format!(
             "Rust port of chap-core's {} baseline",
             id.replace('-', "_")

@@ -7,6 +7,7 @@
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     baseline_core::run(
         "seasonal-shift-persistence",
+        env!("CARGO_PKG_VERSION"),
         "Seasonal shift persistence (crs)",
         baseline_seasonal_shift_persistence::SeasonalShiftPersistence,
         chapkit::NoConfig {},
