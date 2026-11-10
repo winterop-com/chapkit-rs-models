@@ -41,7 +41,7 @@ impl Fixture {
 }
 
 /// How closely a port's samples must match chap-core's.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Match {
     /// Bit for bit: the same `f64` (`to_bits()` equality).
     Exact,
@@ -49,6 +49,11 @@ pub enum Match {
     /// that call the platform's `exp` and `ln`: numpy and Rust both take them from the C library,
     /// whose last bit differs between platforms (macOS and Linux), so chap-core's own output does.
     Ulps(u64),
+    /// At most this far apart relative to the sample, floored at one case
+    /// (`|got - want| <= tol * max(|want|, 1)`), for calculations whose last-bit differences
+    /// between C libraries are amplified (e.g. `expm1` of a scaled `log1p`), where a ULP count
+    /// overstates the difference near zero.
+    Relative(f64),
 }
 
 impl Match {
@@ -64,6 +69,7 @@ impl Match {
                     && got.is_sign_negative() == want.is_sign_negative()
                     && got.to_bits().abs_diff(want.to_bits()) <= n
             }
+            Match::Relative(tol) => (got - want).abs() <= tol * want.abs().max(1.0),
         }
     }
 }

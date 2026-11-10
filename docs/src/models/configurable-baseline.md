@@ -87,8 +87,9 @@ of it) and applies the original's `adjust` from `predict.py`, numpy operation fo
 
 - **Other options:** the original's operations in its order, so the same `f64`s, sample for sample, on the
   platform the fixtures were made on (macOS). `log1p` and `expm1` come from the platform's C library on both
-  sides, so across platforms a sample can differ in its last few bits: on Linux (CI) up to 3 units in the last
-  place (2 × 10⁻¹⁴ at 37 cases). The test allows 4.
+  sides, so across platforms a sample can differ in its last bits. Measured over every fixture sample with
+  Linux's glibc (amd64 and arm64): at most 1.8 × 10⁻¹⁵ relative to the sample (floored at one case); a spread
+  of 2 doubles the last-bit difference of `log1p` before `expm1`. The test allows 10⁻¹⁴.
 - **Defaults:** exactly seasonal shift persistence's samples (and chap-core's). The original computes
   `exp(log(1 + s)) − 1` even then, which moves a sample by up to 4 units in the last place (about 3 × 10⁻¹⁴
   here); the port skips the round trip, as the original's README promises the built-in model's samples.

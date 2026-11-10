@@ -68,8 +68,9 @@ fn options_match_the_original() {
                 &ConfigurableBaseline,
                 &config,
                 // log1p and expm1 come from the platform's C library: bit for bit on the platform
-                // that made the fixtures (macOS), up to 3 ULP apart on Linux.
-                Match::Ulps(4),
+                // that made the fixtures (macOS); on Linux (glibc, amd64 and arm64) at most 1.8e-15
+                // apart relative to the sample, measured over every fixture sample.
+                Match::Relative(1e-14),
             )
             .unwrap();
         }
