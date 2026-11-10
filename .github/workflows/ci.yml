@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: Lint and test
+    runs-on: ubuntu-24.04
+    steps:
+      # The models depend on chapkit-rs by path (../chapkit-rs): check both out side by side.
+      - uses: actions/checkout@v5
+        with:
+          path: chapkit-rs-models
+      - uses: actions/checkout@v5
+        with:
+          repository: winterop-com/chapkit-rs
+          path: chapkit-rs
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: chapkit-rs-models
+      - name: Format
+        working-directory: chapkit-rs-models
+        run: cargo fmt --all --check
+      - name: Clippy (warnings are errors)
+        working-directory: chapkit-rs-models
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test (parity with chap-core, checkpoints, HTTP flow)
+        working-directory: chapkit-rs-models
+        run: cargo test --workspace
+
+  docs:
+    name: Build the book
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: mdbook@0.5.4
+      - run: mdbook build docs

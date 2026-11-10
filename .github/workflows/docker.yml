@@ -1,0 +1,118 @@
+name: Images
+
+# Builds one image per model with chapkit-rs's shared Dockerfile and publishes it to the GitHub
+# container registry as ghcr.io/<owner>/chapkit-rs-models/<binary>, for linux/amd64 and linux/arm64.
+# Each architecture builds natively on its own runner; a final job joins them into one tag.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: images-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/chapkit-rs-models
+
+jobs:
+  build:
+    name: ${{ matrix.bin }} (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        bin: [baseline-global-median, baseline-seasonal-median, baseline-seasonal-shift-persistence]
+        platform: [linux/amd64, linux/arm64]
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+            arch: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            arch: arm64
+    steps:
+      # The build context holds both checkouts: the models depend on chapkit-rs by path.
+      - uses: actions/checkout@v5
+        with:
+          path: chapkit-rs-models
+      - uses: actions/checkout@v5
+        with:
+          repository: ${{ github.repository_owner }}/chapkit-rs
+          path: chapkit-rs
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: chapkit-rs/docker/Dockerfile
+          platforms: ${{ matrix.platform }}
+          build-args: |
+            WORKSPACE=chapkit-rs-models
+            BIN=${{ matrix.bin }}
+            GIT_REVISION=${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          outputs: type=image,name=${{ env.IMAGE_PREFIX }}/${{ matrix.bin }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.bin }}-${{ matrix.arch }}
+          cache-to: type=gha,scope=${{ matrix.bin }}-${{ matrix.arch }},mode=max
+      - name: Keep the digest for the merge job
+        run: |
+          mkdir -p digests
+          touch "digests/${DIGEST#sha256:}"
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.bin }}-${{ matrix.arch }}
+          path: digests/*
+          retention-days: 1
+
+  merge:
+    name: ${{ matrix.bin }}
+    needs: build
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        bin: [baseline-global-median, baseline-seasonal-median, baseline-seasonal-shift-persistence]
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: digests-${{ matrix.bin }}-*
+          merge-multiple: true
+          path: digests
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/${{ matrix.bin }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-
+            type=semver,pattern={{version}}
+      - name: Create the multi-architecture tags
+        working-directory: digests
+        run: |
+          # Word splitting is intended: one -t per tag, one argument per digest.
+          # shellcheck disable=SC2046
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.IMAGE_PREFIX }}/${{ matrix.bin }}@sha256:%s ' *)
+      - run: docker buildx imagetools inspect ${{ env.IMAGE_PREFIX }}/${{ matrix.bin }}:${{ steps.meta.outputs.version }}

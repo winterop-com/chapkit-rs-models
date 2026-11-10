@@ -11,7 +11,8 @@ Each model package is a crate under `crates/`; the root holds the workspace, the
 and helper scripts. The ports of chap-core's baselines are prefixed `baseline-`, and each is checked against
 chap-core number for number.
 
-**The book** (`make docs`, source in `docs/`) describes every model in full: the method, worked examples with
+**The book**, online at <https://winterop-com.github.io/chapkit-rs-models/> (source in `docs/`, `make docs`),
+describes every model in full: the method, worked examples with
 real numbers, figures, fallbacks, and how the ports are checked against chap-core.
 
 **How a forecast is calculated** is in each package's `src/model.rs`: plain, commented functions over numbers,
@@ -38,6 +39,13 @@ make bench-scale                 # chap-core's built-in baselines vs the Rust po
 make release FEATURES=turso      # binaries that also accept turso: database URLs
 cargo build --features polars    # DataFrame::to_polars / from_polars for pandas-style models
 ```
+
+## Images
+
+Published for linux/amd64 and linux/arm64 on every push to `main`:
+`ghcr.io/winterop-com/chapkit-rs-models/baseline-global-median`, `.../baseline-seasonal-median` and
+`.../baseline-seasonal-shift-persistence` (tags `latest`, `sha-<commit>`). `make docker-up` builds and runs them
+locally with `compose.yml`.
 
 ## Running a service
 

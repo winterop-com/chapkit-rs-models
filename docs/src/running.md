@@ -38,6 +38,18 @@ bin/baseline-seasonal-shift-persistence demo
 trains and predicts once on the [example data](verification.md) and prints the timing and the median forecast
 of each row.
 
+## In Docker
+
+Published images, for linux/amd64 and linux/arm64:
+
+```sh
+docker run -p 8000:8000 -v gm-data:/work/data ghcr.io/winterop-com/chapkit-rs-models/baseline-global-median
+```
+
+They are built from chapkit-rs's shared Dockerfile (see the chapkit-rs book, *Docker*): one binary on a minimal
+base image, uid 1000, the database in `/work/data`, a read-only root filesystem and a built-in health check.
+`make docker-up` builds and starts all three locally with `compose.yml`, on ports 8001 to 8003.
+
 ## With chap-core
 
 Start the service with `SERVICEKIT_ORCHESTRATOR_URL` pointing at chap-core; it registers itself and keeps the

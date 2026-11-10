@@ -1,0 +1,79 @@
+# The baselines as chapkit-rs services, built with chapkit-rs's shared Dockerfile.
+#
+#     make docker-up        (or: GIT_REVISION=$(git rev-parse HEAD) docker compose up --build -d)
+#
+# chapkit-rs must be checked out next to this repository: the build context is the parent directory.
+# Each service keeps its database in a named volume, runs as uid 1000 on a read-only filesystem, and
+# reports its health. To register with chap-core, set SERVICEKIT_ORCHESTRATOR_URL (for example
+# http://chap:8000/v2/services/$$register when on chap-core's network); each service registers under
+# its compose service name, which chap-core then uses to reach it.
+
+x-model: &model
+  read_only: true
+  tmpfs:
+    - /tmp
+  restart: unless-stopped
+  environment: &environment
+    LOG_LEVEL: info
+    SERVICEKIT_ORCHESTRATOR_URL: ${SERVICEKIT_ORCHESTRATOR_URL:-}
+    SERVICEKIT_PORT: "8000"
+
+services:
+  global-median:
+    <<: *model
+    build:
+      context: ..
+      dockerfile: chapkit-rs/docker/Dockerfile
+      args:
+        WORKSPACE: chapkit-rs-models
+        BIN: baseline-global-median
+        GIT_REVISION: ${GIT_REVISION:-}
+    image: chapkit-rs-models/baseline-global-median
+    ports:
+      - "8001:8000"
+    environment:
+      <<: *environment
+      SERVICEKIT_HOST: global-median
+    volumes:
+      - global-median-data:/work/data
+
+  seasonal-median:
+    <<: *model
+    build:
+      context: ..
+      dockerfile: chapkit-rs/docker/Dockerfile
+      args:
+        WORKSPACE: chapkit-rs-models
+        BIN: baseline-seasonal-median
+        GIT_REVISION: ${GIT_REVISION:-}
+    image: chapkit-rs-models/baseline-seasonal-median
+    ports:
+      - "8002:8000"
+    environment:
+      <<: *environment
+      SERVICEKIT_HOST: seasonal-median
+    volumes:
+      - seasonal-median-data:/work/data
+
+  seasonal-shift-persistence:
+    <<: *model
+    build:
+      context: ..
+      dockerfile: chapkit-rs/docker/Dockerfile
+      args:
+        WORKSPACE: chapkit-rs-models
+        BIN: baseline-seasonal-shift-persistence
+        GIT_REVISION: ${GIT_REVISION:-}
+    image: chapkit-rs-models/baseline-seasonal-shift-persistence
+    ports:
+      - "8003:8000"
+    environment:
+      <<: *environment
+      SERVICEKIT_HOST: seasonal-shift-persistence
+    volumes:
+      - seasonal-shift-persistence-data:/work/data
+
+volumes:
+  global-median-data:
+  seasonal-median-data:
+  seasonal-shift-persistence-data:

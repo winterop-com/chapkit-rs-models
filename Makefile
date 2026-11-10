@@ -1,4 +1,4 @@
-.PHONY: help check build release lint fmt test bench bench-http bench-scale bench-compare demo fixtures docs docs-serve docs-figures clean
+.PHONY: help check build release lint fmt test bench bench-http bench-scale bench-compare demo fixtures docs docs-serve docs-figures docker-build docker-up docker-down clean
 
 BINS := baseline-global-median baseline-seasonal-median baseline-seasonal-shift-persistence
 CHAP_CORE ?= ../../chap-core
@@ -24,6 +24,9 @@ help:
 	@echo "  docs      Build the book (docs/book)"
 	@echo "  docs-serve  Serve the book with live reload"
 	@echo "  docs-figures  Redraw the book's figures from the models' output (after make release)"
+	@echo "  docker-build  Build an image per model (chapkit-rs's shared Dockerfile; ../chapkit-rs needed)"
+	@echo "  docker-up     Build and start all models with docker compose (ports 8001-8003)"
+	@echo "  docker-down   Stop them"
 	@echo "  clean     Remove build output"
 
 check: lint test
@@ -73,6 +76,16 @@ docs-serve:
 
 docs-figures:
 	@$(CHAP_CORE)/.venv/bin/python scripts/make_figures.py
+
+docker-build:
+	@GIT_REVISION=$$(git rev-parse HEAD) docker compose build
+
+docker-up:
+	@GIT_REVISION=$$(git rev-parse HEAD) docker compose up --build -d
+	@docker compose ps
+
+docker-down:
+	@docker compose down
 
 clean:
 	@cargo clean
