@@ -7,7 +7,9 @@
 #[tokio::main]
 async fn main() -> std::process::ExitCode {
     baseline_core::run(
-        "persistence",
+        // Not "persistence": that is the name of chap-core's built-in, which chap-core would
+        // take this for a new version of.
+        "persistence-crs",
         env!("CARGO_PKG_VERSION"),
         "Persistence (crs)",
         baseline_persistence::Persistence,

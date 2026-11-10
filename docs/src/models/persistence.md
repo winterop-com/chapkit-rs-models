@@ -1,6 +1,6 @@
 # Persistence
 
-**Package:** `baseline-persistence` · **Binary:** `baseline-persistence` · **Service id:** `persistence`
+**Package:** `baseline-persistence` · **Binary:** `baseline-persistence` · **Service id:** `persistence-crs`
 · **Port of:** chap-core `persistence` (version 2, chap-core 2.7.0) · **Code:** `crates/baseline-persistence/src/model.rs`
 
 ## In one sentence

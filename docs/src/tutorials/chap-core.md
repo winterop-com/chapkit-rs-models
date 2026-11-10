@@ -29,7 +29,8 @@ chap-devops up --wait
 
 ## 2. Start the baselines and register them
 
-From `chapkit-rs-models`, in four terminals (or with `&`), one port each:
+From `chapkit-rs-models`, in four terminals (or with `&`), one port each. Persistence registers as `persistence-crs`, since
+`persistence` is the name of chap-core's own built-in:
 
 ```sh
 REV=$(git rev-parse HEAD)
@@ -60,7 +61,7 @@ MODEL                       STATE      REACH                             LAST PI
 global-median               unmanaged  http://host.docker.internal:8001  4s ago
 seasonal-median             unmanaged  http://host.docker.internal:8002  4s ago
 seasonal-shift-persistence  unmanaged  http://host.docker.internal:8003  4s ago
-persistence                 unmanaged  http://host.docker.internal:8004  4s ago
+persistence-crs             unmanaged  http://host.docker.internal:8004  4s ago
 ```
 
 ## 4. Configure and backtest
@@ -68,8 +69,8 @@ persistence                 unmanaged  http://host.docker.internal:8004  4s ago
 Still in `mychap`:
 
 ```sh
-for m in global-median seasonal-median seasonal-shift-persistence persistence; do chap-devops models configs sync $m; done
-chap-devops models test global-median seasonal-median seasonal-shift-persistence persistence --backtest --seed 7
+for m in global-median seasonal-median seasonal-shift-persistence persistence-crs; do chap-devops models configs sync $m; done
+chap-devops models test global-median seasonal-median seasonal-shift-persistence persistence-crs --backtest --seed 7
 ```
 
 ```text
@@ -82,7 +83,7 @@ seasonal-shift-persistence    pass       8s   crps 6.5  mae 8.1  rmse 11.3
 ```
 
 (This output is from a run before persistence was added; the command now tests four models and prints a
-line for `persistence` too.)
+line for `persistence-crs` too.)
 
 For each model chap-core created a dataset from the model's sample data, ran a backtest (train, forecast,
 compare with what happened, several times over) and computed the scores. Lower is better: here the seasonal
