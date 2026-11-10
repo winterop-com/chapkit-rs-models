@@ -67,7 +67,9 @@ fn options_match_the_original() {
                 label,
                 &ConfigurableBaseline,
                 &config,
-                Match::Exact,
+                // log1p and expm1 come from the platform's C library: bit for bit on the platform
+                // that made the fixtures (macOS), up to 3 ULP apart on Linux.
+                Match::Ulps(4),
             )
             .unwrap();
         }

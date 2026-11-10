@@ -85,8 +85,10 @@ monthly and weekly, for the defaults and six other option sets. `scripts/gen_con
 the expected output: it runs chap-core 2.7.0's built-in seasonal shift persistence (the original carries a copy
 of it) and applies the original's `adjust` from `predict.py`, numpy operation for numpy operation.
 
-- **Other options:** the same `f64`s, sample for sample. The port does the original's operations in its order;
-  `log1p` and `expm1` come from the C library on both sides.
+- **Other options:** the original's operations in its order, so the same `f64`s, sample for sample, on the
+  platform the fixtures were made on (macOS). `log1p` and `expm1` come from the platform's C library on both
+  sides, so across platforms a sample can differ in its last few bits: on Linux (CI) up to 3 units in the last
+  place (2 × 10⁻¹⁴ at 37 cases). The test allows 4.
 - **Defaults:** exactly seasonal shift persistence's samples (and chap-core's). The original computes
   `exp(log(1 + s)) − 1` even then, which moves a sample by up to 4 units in the last place (about 3 × 10⁻¹⁴
   here); the port skips the round trip, as the original's README promises the built-in model's samples.
