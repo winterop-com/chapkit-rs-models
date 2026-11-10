@@ -44,10 +44,15 @@ cargo build --features polars    # DataFrame::to_polars / from_polars for pandas
 
 ## Images
 
-Published for linux/amd64 and linux/arm64 on every push to `main`:
+Published for linux/amd64 and linux/arm64:
 `ghcr.io/winterop-com/chapkit-rs-models/baseline-global-median`, `.../baseline-seasonal-median`,
-`.../baseline-seasonal-shift-persistence` and `.../baseline-persistence` (tags `latest`, `sha-<commit>`). `make docker-up` builds and runs them
-locally with `compose.yml`.
+`.../baseline-seasonal-shift-persistence` and `.../baseline-persistence` (tags `<version>`, `latest`,
+`sha-<commit>`). `make docker-up` builds and runs them locally with `compose.yml`.
+
+An image is published once per version, the workspace `version` in `Cargo.toml`. chap-core treats a model
+version as write-once and refuses a new build under a version it has already seen, so a push to `main` only
+publishes images whose version is not yet published: **bump the version to publish a change** (the workflow
+warns when there is nothing new to publish).
 
 ## Running a service
 

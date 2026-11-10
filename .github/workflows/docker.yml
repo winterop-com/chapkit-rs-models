@@ -3,10 +3,14 @@ name: Images
 # Builds one image per model with chapkit-rs's shared Dockerfile and publishes it to the GitHub
 # container registry as ghcr.io/<owner>/chapkit-rs-models/<binary>, for linux/amd64 and linux/arm64.
 # Each architecture builds natively on its own runner; a final job joins them into one tag.
+#
+# An image is published once per version (the workspace `version` in Cargo.toml), tagged with that
+# version, `latest` and `sha-<commit>`. chap-core treats a model version as write-once and refuses a
+# new build under a version it has seen, so an image whose version tag already exists is not built
+# again: bump the version to publish a change.
 on:
   push:
     branches: [main]
-    tags: ["v*"]
     # Documentation and benchmark changes do not change the images.
     paths-ignore: ["docs/**", "bench/**", "**.md"]
   workflow_dispatch:
@@ -26,13 +30,43 @@ env:
   IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/chapkit-rs-models
 
 jobs:
+  version:
+    name: Images to publish
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      bins: ${{ steps.plan.outputs.bins }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: plan
+        run: |
+          version=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)
+          [ -n "$version" ] || { echo "::error::no version in Cargo.toml"; exit 1; }
+          bins=()
+          for bin in $BINS; do
+            if docker buildx imagetools inspect "$IMAGE_PREFIX/$bin:$version" >/dev/null 2>&1; then
+              echo "$bin $version is already published"
+            else
+              bins+=("$bin")
+            fi
+          done
+          if [ ${#bins[@]} -eq 0 ]; then
+            echo "::warning::every image is already published as $version; bump the version in Cargo.toml to publish this change"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "bins=$(printf '%s\n' "${bins[@]}" | jq -Rnc '[inputs | select(length > 0)]')" >> "$GITHUB_OUTPUT"
+        env:
+          BINS: baseline-global-median baseline-seasonal-median baseline-seasonal-shift-persistence baseline-persistence
+
   build:
     name: ${{ matrix.bin }} (${{ matrix.platform }})
+    needs: version
+    if: needs.version.outputs.bins != '[]'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        bin: [baseline-global-median, baseline-seasonal-median, baseline-seasonal-shift-persistence, baseline-persistence]
+        bin: ${{ fromJSON(needs.version.outputs.bins) }}
         platform: [linux/amd64, linux/arm64]
         include:
           - platform: linux/amd64
@@ -90,11 +124,11 @@ jobs:
 
   merge:
     name: ${{ matrix.bin }}
-    needs: build
+    needs: [version, build]
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        bin: [baseline-global-median, baseline-seasonal-median, baseline-seasonal-shift-persistence, baseline-persistence]
+        bin: ${{ fromJSON(needs.version.outputs.bins) }}
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -112,9 +146,9 @@ jobs:
         with:
           images: ${{ env.IMAGE_PREFIX }}/${{ matrix.bin }}
           tags: |
+            type=raw,value=${{ needs.version.outputs.version }}
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-
-            type=semver,pattern={{version}}
       - name: Create the multi-architecture tags
         working-directory: digests
         run: |
@@ -129,7 +163,7 @@ jobs:
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
         env:
           IMAGE: ${{ env.IMAGE_PREFIX }}/${{ matrix.bin }}
-          VERSION: ${{ steps.meta.outputs.version }}
+          VERSION: ${{ needs.version.outputs.version }}
       - uses: actions/attest-build-provenance@v4
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ matrix.bin }}
