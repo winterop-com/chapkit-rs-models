@@ -7,10 +7,10 @@ Instructions for AI coding agents working in this repository. `CLAUDE.md` is a s
 Model packages for chapkit-rs (sibling checkout `../chapkit-rs`, the library). Each crate here
 depends on `chapkit` through the workspace dependency and is laid out like a real model project.
 
-- `baselines/`: ports of chap-core's built-in baselines (`chap_core/models/builtin`), one binary per model.
-  They must match chap-core number for number (`baselines/tests/parity.rs`); regenerate the fixtures with
+- `crates/baselines/`: ports of chap-core's built-in baselines (`chap_core/models/builtin`), one binary per model.
+  They must match chap-core number for number (`crates/baselines/tests/parity.rs`); regenerate the fixtures with
   `make fixtures` when chap-core's baselines change.
-- `ridge/`: covariate model with a search space and tensor checkpoints; a reference model for xAI and HPO
+- `crates/ridge/`: covariate model with a search space and tensor checkpoints; a reference model for xAI and HPO
   work, not a model meant for real forecasts.
 
 Library changes belong in `../chapkit-rs`, not here.

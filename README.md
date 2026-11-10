@@ -7,10 +7,13 @@ API (so chap-core can use it unchanged) from `chapkit::Service`.
 The library is expected as a sibling checkout: clone `chapkit-rs` next to this repository
 (`chap-workspace/rs/chapkit-rs` and `chap-workspace/rs/chapkit-rs-models`).
 
+Each model package is a crate under `crates/`; the root holds the workspace, the HTTP benchmark (`bench/`)
+and helper scripts.
+
 | crate | what |
 |---|---|
-| `baselines` | chap-core's built-in baselines (`global_median`, `seasonal_median`, `seasonal_shift_persistence`), ported and checked against chap-core number for number. One binary per model. |
-| `ridge` | Ridge regression on covariates with a search space and tensor checkpoints; the reference model for xAI and HPO. |
+| `crates/baselines` | chap-core's built-in baselines (`global_median`, `seasonal_median`, `seasonal_shift_persistence`), ported and checked against chap-core number for number. One binary per model. |
+| `crates/ridge` | Ridge regression on covariates with a search space and tensor checkpoints; the reference model for xAI and HPO. |
 
 ```sh
 make release                     # binaries into ./bin

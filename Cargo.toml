@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["baselines", "ridge"]
+members = ["crates/*"]
 
 [workspace.package]
 version = "0.1.0"
@@ -22,7 +22,7 @@ tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 ulid = { version = "3", features = ["serde"] }
 criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
-baselines = { path = "baselines" }
+baselines = { path = "crates/baselines" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
