@@ -1,6 +1,6 @@
 .PHONY: help check build release lint fmt test bench bench-http bench-scale bench-compare demo fixtures clean
 
-BINS := baseline-global-median baseline-seasonal-median baseline-seasonal-shift-persistence ridge
+BINS := baseline-global-median baseline-seasonal-median baseline-seasonal-shift-persistence
 CHAP_CORE ?= ../../chap-core
 # FEATURES=turso builds the binaries with the turso store backend.
 FEATURES ?=

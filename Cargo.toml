@@ -13,11 +13,8 @@ publish = false
 chapkit = { path = "../chapkit-rs" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
-schemars = "1"
 rayon = "1"
 cpu-time = "1"
-rand = { version = "0.9", features = ["small_rng"] }
-rand_distr = "0.5"
 tokio = { version = "1", features = ["full"] }
 axum = { version = "0.8", features = ["macros"] }
 tower = { version = "0.5", features = ["util"] }

@@ -22,7 +22,6 @@ with no tables, threads or HTTP (for example `crates/baseline-seasonal-shift-per
 | `crates/baseline-seasonal-shift-persistence` | chap-core's `seasonal_shift_persistence`: the last value, scaled by how cases changed over the same horizon and season before. |
 | `crates/baseline-core` | Shared by the baselines: the quantile step, chap-core's outputs for the parity tests, the demo runner, synthetic data. |
 | `crates/baseline-bench` | Times the baselines at any data size, for `make bench-scale`. |
-| `crates/ridge` | Ridge regression on covariates with a search space and tensor checkpoints; the reference model for xAI and HPO. |
 
 ```sh
 make release                     # binaries into ./bin

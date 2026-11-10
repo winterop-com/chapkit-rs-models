@@ -15,8 +15,6 @@ depends on `chapkit` through the workspace dependency and is laid out like a rea
 - Every model package keeps its calculation in `src/model.rs`: plain functions over numbers, commented so someone
   who only wants to know how the forecast is calculated can read that file alone. `src/lib.rs` is the chapkit
   plumbing (tables, parallelism, errors) and `src/main.rs` the binary.
-- `crates/ridge/`: covariate model with a search space and tensor checkpoints; a reference model for xAI and HPO
-  work, not a model meant for real forecasts.
 
 Library changes belong in `../chapkit-rs`, not here.
 
