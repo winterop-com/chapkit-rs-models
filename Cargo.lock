@@ -307,18 +307,67 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 
 [[package]]
-name = "baselines"
+name = "baseline-bench"
+version = "0.1.0"
+dependencies = [
+ "baseline-core",
+ "baseline-global-median",
+ "baseline-seasonal-median",
+ "baseline-seasonal-shift-persistence",
+ "chapkit",
+ "cpu-time",
+ "serde_json",
+]
+
+[[package]]
+name = "baseline-core"
+version = "0.1.0"
+dependencies = [
+ "chapkit",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "baseline-global-median"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "baseline-core",
  "chapkit",
  "criterion",
  "http-body-util",
+ "rayon",
  "serde",
  "serde_json",
  "tokio",
  "tower",
  "ulid",
+]
+
+[[package]]
+name = "baseline-seasonal-median"
+version = "0.1.0"
+dependencies = [
+ "baseline-core",
+ "baseline-global-median",
+ "chapkit",
+ "criterion",
+ "rayon",
+ "serde",
+ "tokio",
+]
+
+[[package]]
+name = "baseline-seasonal-shift-persistence"
+version = "0.1.0"
+dependencies = [
+ "baseline-core",
+ "chapkit",
+ "criterion",
+ "rayon",
+ "serde",
+ "tokio",
 ]
 
 [[package]]
@@ -519,6 +568,7 @@ name = "chapkit-core"
 version = "0.1.0"
 dependencies = [
  "chapkit-dataframe",
+ "rayon",
  "safetensors",
  "schemars",
  "serde",
@@ -736,6 +786,16 @@ name = "core-foundation-sys"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
+
+[[package]]
+name = "cpu-time"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9e393a7668fe1fad3075085b86c781883000b4ede868f43627b34a87c8b7ded"
+dependencies = [
+ "libc",
+ "winapi",
+]
 
 [[package]]
 name = "cpufeatures"
@@ -2726,7 +2786,7 @@ dependencies = [
 name = "ridge"
 version = "0.1.0"
 dependencies = [
- "baselines",
+ "baseline-core",
  "chapkit",
  "criterion",
  "rand 0.9.5",
@@ -3873,7 +3933,7 @@ version = "2.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86a801b3cea342a06d468c8710662aa29e5e05e4f5c0d62f00bbb7f2ad7941c2"
 dependencies = [
- "rand 0.9.5",
+ "rand 0.10.3",
 ]
 
 [[package]]

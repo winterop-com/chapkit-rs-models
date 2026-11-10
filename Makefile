@@ -1,6 +1,6 @@
-.PHONY: help check build release lint fmt test bench bench-http bench-scale demo fixtures clean
+.PHONY: help check build release lint fmt test bench bench-http bench-scale bench-compare demo fixtures clean
 
-BINS := global-median seasonal-median seasonal-shift-persistence ridge
+BINS := baseline-global-median baseline-seasonal-median baseline-seasonal-shift-persistence ridge
 CHAP_CORE ?= ../../chap-core
 # FEATURES=turso builds the binaries with the turso store backend.
 FEATURES ?=
@@ -18,6 +18,7 @@ help:
 	@echo "  bench     Run criterion benchmarks (BENCH=<filter> to narrow)"
 	@echo "  bench-http  Compare against Python chapkit over HTTP (bench/run.py; needs ../../chapkit/.venv)"
 	@echo "  bench-scale  chap-core's built-in baselines vs the Rust ports, 100 to 5000 locations and periods"
+	@echo "  bench-compare  Check every forecast sample against chap-core's on the benchmark data"
 	@echo "  demo      Run every model once in-process and time it"
 	@echo "  fixtures  Regenerate baseline golden outputs from chap-core (CHAP_CORE=$(CHAP_CORE))"
 	@echo "  clean     Remove build output"
@@ -51,6 +52,9 @@ bench-http: release
 
 bench-scale:
 	@python3 bench/scale.py
+
+bench-compare:
+	@python3 bench/compare_outputs.py
 
 demo:
 	@for b in $(BINS); do cargo run -q --release --bin $$b -- demo || exit 1; echo; done

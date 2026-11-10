@@ -2,11 +2,15 @@
 
     ../../chap-core/.venv/bin/python bench/scale_builtin.py <model> <locations> <periods>
 
-Same deterministic data as crates/baselines/examples/scale.rs. Prints one JSON line with median
+Same deterministic data as baseline_core::synthetic (crates/baseline-core/src/synthetic.rs). Prints one JSON line with median
 milliseconds for converting pandas to chap-core's DataSet, train and predict.
+
+With SCALE_DUMP=<file>, also writes every forecast as JSON {"location|period": [samples]} for
+bench/compare_outputs.py.
 """
 
 import json
+import os
 import statistics
 import sys
 import time
@@ -43,6 +47,7 @@ def main():
     future_df = frame(locs, periods, HORIZON, False)
     reps = 5 if len(train_df) <= 100_000 else 1
     conv, fit, pred = [], [], []
+    fit_cpu, pred_cpu = [], []  # process CPU time (all threads) during train and predict
     out_rows = 0
     for _ in range(reps):
         t = time.perf_counter()
@@ -50,19 +55,30 @@ def main():
         conv.append((time.perf_counter() - t) * 1e3)
 
         model = get_builtin_model(model_name)()
-        t = time.perf_counter()
+        t, c = time.perf_counter(), time.process_time()
         model.train(train)
         fit.append((time.perf_counter() - t) * 1e3)
+        fit_cpu.append((time.process_time() - c) * 1e3)
 
-        t = time.perf_counter()
+        t, c = time.perf_counter(), time.process_time()
         out = model.predict(train, future)
         pred.append((time.perf_counter() - t) * 1e3)
+        pred_cpu.append((time.process_time() - c) * 1e3)
         out_rows = sum(len(v.time_period) for v in out.values())
+    if path := os.environ.get("SCALE_DUMP"):
+        dump = {}
+        for location, samples in out.items():
+            for period, row in zip(samples.time_period, samples.samples):
+                dump[f"{location}|{period.id}"] = [float(x) for x in row]
+        with open(path, "w") as f:
+            json.dump(dump, f)
     print(json.dumps({
         "rows": len(train_df),
         "convert_ms": statistics.median(conv),
         "train_ms": statistics.median(fit),
         "predict_ms": statistics.median(pred),
+        "train_cpu_ms": statistics.median(fit_cpu),
+        "predict_cpu_ms": statistics.median(pred_cpu),
         "out_rows": out_rows,
     }))
 

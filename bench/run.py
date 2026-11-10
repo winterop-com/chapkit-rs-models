@@ -32,7 +32,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 WORKSPACE = ROOT.parent.parent
 PY = WORKSPACE / "chapkit" / ".venv" / "bin" / "python"
-RS_BIN = ROOT / "bin" / "global-median"
+RS_BIN = ROOT / "bin" / "baseline-global-median"
 
 CHAP_CORE_POLL = 2.0
 CHAP_CORE_CYCLES = 3

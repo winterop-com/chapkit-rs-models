@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Ridge stores its weights as tensors and survives a safetensors round trip.
 
-use baselines::demo::checkpoint_round_trip;
+use baseline_core::fixture::checkpoint_round_trip;
 use ridge::{RidgeConfig, RidgeModel};
 
 #[test]

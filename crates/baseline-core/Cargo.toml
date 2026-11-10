@@ -1,0 +1,19 @@
+[package]
+name = "baseline-core"
+description = "Shared by the chap-core baseline ports: the quantile step, chap-core parity fixtures, the demo runner"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+chapkit.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[features]
+turso = ["chapkit/turso"]
+polars = ["chapkit/polars"]
+
+[lints]
+workspace = true

@@ -1,53 +1,49 @@
 //! Time one baseline in-process on a generated dataset of a given size. Used by bench/scale.py.
 //!
-//!     cargo run --release -p baselines --example scale -- <model> <locations> <periods>
+//!     cargo run --release -p baseline-bench -- <model> <locations> <periods>
 //!
-//! The data is deterministic and identical to bench/scale_builtin.py (chap-core's side): monthly
-//! periods from 1850-01, a seasonal signal per location, 3 future periods. Prints one JSON line
+//! The data is deterministic and identical to bench/scale_builtin.py (chap-core's side), from
+//! `baseline_core::synthetic`; 3 future periods. Prints one JSON line
 //! with median milliseconds for decoding the request JSON, train and predict.
+//!
+//! With `SCALE_DUMP=<file>`, also writes every forecast as JSON `{"location|period": [samples]}`
+//! for bench/compare_outputs.py, which checks it against chap-core's.
 
 use std::time::Instant;
 
-use baselines::{GlobalMedian, SeasonalMedian, SeasonalShiftPersistence};
-use chapkit::{Column, DataFrame, Model, NoConfig, PredictInput, RunInfo, TrainInput};
+use cpu_time::ProcessTime;
 
-const START_YEAR: usize = 1850;
+use baseline_core::synthetic::train_and_future;
+use baseline_global_median::GlobalMedian;
+use baseline_seasonal_median::SeasonalMedian;
+use baseline_seasonal_shift_persistence::SeasonalShiftPersistence;
+use chapkit::{DataFrame, Model, NoConfig, PredictInput, RunInfo, TrainInput};
+
 const HORIZON: usize = 3;
 const HORIZON_U32: u32 = 3;
 
-fn frame(
-    locs: usize,
-    start: usize,
-    n: usize,
-    with_y: bool,
-) -> Result<DataFrame, chapkit::FrameError> {
-    let rows = locs * n;
-    let (mut tp, mut loc) = (Vec::with_capacity(rows), Vec::with_capacity(rows));
-    let (mut rain, mut temp, mut y) = (
-        Vec::with_capacity(rows),
-        Vec::with_capacity(rows),
-        Vec::with_capacity(rows),
-    );
-    for l in 0..locs {
-        for p in start..start + n {
-            tp.push(format!("{}-{:02}", START_YEAR + p / 12, p % 12 + 1));
-            loc.push(format!("loc{l}"));
-            let season = ((p % 12) as f64 / 12.0 * std::f64::consts::TAU).sin();
-            rain.push(100.0 + 50.0 * season + l as f64);
-            temp.push(25.0 + 3.0 * season);
-            y.push((20.0 + 10.0 * season + 2.0 * (l % 50) as f64 + (p % 7) as f64).round());
-        }
+/// Every forecast row as `"location|period" -> samples`.
+fn dump(
+    pred: &DataFrame,
+) -> Result<serde_json::Map<String, serde_json::Value>, Box<dyn std::error::Error>> {
+    let (tp, loc) = (pred.require("time_period")?, pred.require("location")?);
+    let samples: Vec<Vec<f64>> = pred
+        .names()
+        .iter()
+        .filter(|n| n.starts_with("sample_"))
+        .map(|n| pred.f64_column(n))
+        .collect::<Result<_, _>>()?;
+    let mut out = serde_json::Map::new();
+    for row in 0..pred.n_rows() {
+        let key = format!(
+            "{}|{}",
+            loc.str_at(row).unwrap_or_default(),
+            tp.str_at(row).unwrap_or_default()
+        );
+        let values: Vec<f64> = samples.iter().filter_map(|s| s.get(row).copied()).collect();
+        out.insert(key, serde_json::json!(values));
     }
-    let mut cols = vec![
-        ("time_period", Column::from_strs(tp)),
-        ("location", Column::from_strs(loc)),
-        ("rainfall", Column::from_f64(rain)),
-        ("mean_temperature", Column::from_f64(temp)),
-    ];
-    if with_y {
-        cols.push(("disease_cases", Column::from_f64(y)));
-    }
-    DataFrame::from_columns(cols)
+    Ok(out)
 }
 
 fn median(mut v: Vec<f64>) -> f64 {
@@ -61,8 +57,7 @@ fn time<M: Model>(
     locs: usize,
     periods: usize,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let train = frame(locs, 0, periods, true)?;
-    let future = frame(locs, periods, HORIZON, false)?;
+    let (train, future) = train_and_future(locs, periods, HORIZON)?;
     let run = RunInfo::with_periods(HORIZON_U32);
     let rows = train.n_rows();
     let reps = if rows <= 100_000 { 5 } else { 1 };
@@ -76,7 +71,10 @@ fn time<M: Model>(
         serde_json::to_vec(&train)?
     };
     let (mut decode, mut fit, mut pred) = (vec![], vec![], vec![]);
+    // CPU time of the whole process (all threads) during train and predict.
+    let (mut fit_cpu, mut pred_cpu) = (vec![], vec![]);
     let mut out_rows = 0;
+    let mut last: Option<DataFrame> = None;
     for _ in 0..reps {
         if !skip_decode {
             let t = Instant::now();
@@ -85,18 +83,24 @@ fn time<M: Model>(
             drop(decoded);
         }
 
-        let t = Instant::now();
+        let (t, c) = (Instant::now(), ProcessTime::now());
         let trained = model.train(config, TrainInput::new(&train, &run, None))?;
         fit.push(t.elapsed().as_secs_f64() * 1e3);
+        fit_cpu.push(c.elapsed().as_secs_f64() * 1e3);
 
-        let t = Instant::now();
+        let (t, c) = (Instant::now(), ProcessTime::now());
         let out = model.predict(
             &trained,
             config,
             PredictInput::new(&train, &future, &run, None),
         )?;
         pred.push(t.elapsed().as_secs_f64() * 1e3);
+        pred_cpu.push(c.elapsed().as_secs_f64() * 1e3);
         out_rows = out.n_rows();
+        last = Some(out);
+    }
+    if let (Some(path), Some(pred)) = (std::env::var_os("SCALE_DUMP"), &last) {
+        std::fs::write(path, serde_json::to_vec(&dump(pred)?)?)?;
     }
     Ok(serde_json::json!({
         "rows": rows,
@@ -104,6 +108,8 @@ fn time<M: Model>(
         "decode_ms": median(decode),
         "train_ms": median(fit),
         "predict_ms": median(pred),
+        "train_cpu_ms": median(fit_cpu),
+        "predict_cpu_ms": median(pred_cpu),
         "out_rows": out_rows,
     })
     .to_string())

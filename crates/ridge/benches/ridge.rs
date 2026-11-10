@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use std::hint::black_box;
 
-use baselines::demo::Fixture;
+use baseline_core::fixture::Fixture;
 use chapkit::{Model, PredictInput, RunInfo, TrainInput};
 use criterion::{Criterion, criterion_group, criterion_main};
 use ridge::{RidgeConfig, RidgeModel};

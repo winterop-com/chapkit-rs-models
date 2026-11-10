@@ -3,11 +3,14 @@
     python3 bench/scale.py        (from the chapkit-rs-models root; make bench-scale)
 
 Each size runs in its own process (bench/scale_builtin.py with chap-core's environment,
-crates/baselines/examples/scale.rs in release mode) so peak memory is per run. Writes
+the baseline-bench binary in release mode) so peak memory is per run. The Rust models run
+on one core (RAYON_NUM_THREADS=1, like chap-core) and on all cores, then once more to time
+decoding the data from JSON. CPU time is measured inside each process around train and predict. Writes
 bench/scale_results.json and prints a table.
 """
 
 import json
+import os
 import platform
 import re
 import subprocess
@@ -16,7 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CHAP_PY = ROOT.parent.parent / "chap-core" / ".venv" / "bin" / "python"
-RUST = ROOT / "target" / "release" / "examples" / "scale"
+RUST = ROOT / "target" / "release" / "baseline-bench"
 MODELS = ["global_median", "seasonal_median", "seasonal_shift_persistence"]
 # (locations, periods): a locations sweep at 10 years of months, a periods sweep at 100 locations,
 # then both growing together.
@@ -26,12 +29,12 @@ SIZES = [(100, 120), (500, 120), (1000, 120), (2000, 120), (5000, 120),
 TIMEOUT_S = 900
 
 
-def timed(cmd):
+def timed(cmd, env=None):
     """Run cmd under /usr/bin/time; returns (parsed JSON line or error string, peak RSS MB)."""
     flag = "-l" if platform.system() == "Darwin" else "-v"
     try:
         p = subprocess.run(["/usr/bin/time", flag, *map(str, cmd)], capture_output=True, text=True,
-                           timeout=TIMEOUT_S, cwd=ROOT)
+                           timeout=TIMEOUT_S, cwd=ROOT, env={**os.environ, **(env or {})})
     except subprocess.TimeoutExpired:
         return f"timeout > {TIMEOUT_S} s", None
     rss = None
@@ -48,19 +51,25 @@ def timed(cmd):
 
 
 def main():
-    subprocess.run(["cargo", "build", "-q", "--release", "-p", "baselines", "--example", "scale"], cwd=ROOT, check=True)
+    subprocess.run(["cargo", "build", "-q", "--release", "-p", "baseline-bench"], cwd=ROOT, check=True)
     results = []
     for model in MODELS:
         gave_up = False
         for locs, periods in SIZES:
-            rs, rs_rss = timed([RUST, model, locs, periods])
+            # Model runs without the JSON copy, so peak memory is the data plus the model.
+            rs, rs_rss = timed([RUST, model, locs, periods], {"RAYON_NUM_THREADS": "1", "SCALE_NO_DECODE": "1"})
+            rs_par, rs_par_rss = timed([RUST, model, locs, periods], {"SCALE_NO_DECODE": "1"})
+            # Decoding the same data from JSON, as it arrives over HTTP, timed separately.
+            rs_dec, _ = timed([RUST, model, locs, periods], {"RAYON_NUM_THREADS": "1"})
             if gave_up:
                 py, py_rss = "skipped (a smaller size timed out)", None
             else:
                 py, py_rss = timed([CHAP_PY, ROOT / "bench" / "scale_builtin.py", model, locs, periods])
                 gave_up = isinstance(py, str) and py.startswith("timeout")
             row = {"model": model, "locations": locs, "periods": periods,
-                   "rust": rs, "rust_peak_mb": rs_rss, "chap_core": py, "chap_core_peak_mb": py_rss}
+                   "rust": rs, "rust_peak_mb": rs_rss, "rust_all_cores": rs_par, "rust_all_cores_peak_mb": rs_par_rss,
+                   "rust_decode_ms": rs_dec.get("decode_ms") if isinstance(rs_dec, dict) else rs_dec,
+                   "json_mb": rs_dec.get("json_mb") if isinstance(rs_dec, dict) else None, "chap_core": py, "chap_core_peak_mb": py_rss}
             results.append(row)
             print(json.dumps(row), flush=True)
     (ROOT / "bench" / "scale_results.json").write_text(json.dumps(results, indent=1) + "\n")

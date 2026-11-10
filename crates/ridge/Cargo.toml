@@ -8,8 +8,8 @@ publish.workspace = true
 
 [dependencies]
 chapkit.workspace = true
-# Reuses the demo runner and fixture from the baselines example.
-baselines.workspace = true
+# The demo runner and the chap-core fixture data.
+baseline-core.workspace = true
 rand.workspace = true
 rand_distr.workspace = true
 schemars.workspace = true

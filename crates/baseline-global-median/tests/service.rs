@@ -15,13 +15,17 @@ use serde_json::{Value, json};
 use tower::ServiceExt;
 
 async fn app() -> Router {
-    chapkit::Service::new("global-median", "Global median", baselines::GlobalMedian)
-        .database(":memory:")
-        .app()
-        .await
-        .unwrap()
-        .build()
-        .0
+    chapkit::Service::new(
+        "global-median",
+        "Global median",
+        baseline_global_median::GlobalMedian,
+    )
+    .database(":memory:")
+    .app()
+    .await
+    .unwrap()
+    .build()
+    .0
 }
 
 async fn call(
@@ -55,7 +59,7 @@ async fn call(
 fn fixture() -> Value {
     let raw = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/tests/fixtures/baselines_monthly.json"
+        "/../baseline-core/fixtures/baselines_monthly.json"
     ))
     .unwrap();
     serde_json::from_str(&raw).unwrap()

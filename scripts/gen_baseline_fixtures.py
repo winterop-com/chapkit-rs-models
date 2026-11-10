@@ -4,7 +4,7 @@ Run with chap-core's environment, from the chapkit-rs-models root:
 
     ../../chap-core/.venv/bin/python scripts/gen_baseline_fixtures.py
 
-Writes crates/baselines/tests/fixtures/baselines_<case>.json with the
+Writes crates/baseline-core/fixtures/baselines_<case>.json with the
 train/historic/future frames (chapkit {columns, data} format) and the samples
 each baseline predicts, so the Rust ports can be checked number for number.
 """
@@ -19,7 +19,7 @@ import pandas as pd
 from chap_core.models.builtin import get_builtin_model
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
-OUT = Path(__file__).resolve().parent.parent / "crates/baselines/tests/fixtures"
+OUT = Path(__file__).resolve().parent.parent / "crates/baseline-core/fixtures"
 MODELS = ["global_median", "seasonal_median", "seasonal_shift_persistence"]
 
 

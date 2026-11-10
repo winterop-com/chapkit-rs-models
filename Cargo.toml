@@ -14,6 +14,8 @@ chapkit = { path = "../chapkit-rs" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 schemars = "1"
+rayon = "1"
+cpu-time = "1"
 rand = { version = "0.9", features = ["small_rng"] }
 rand_distr = "0.5"
 tokio = { version = "1", features = ["full"] }
@@ -22,7 +24,10 @@ tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 ulid = { version = "3", features = ["serde"] }
 criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
-baselines = { path = "crates/baselines" }
+baseline-core = { path = "crates/baseline-core" }
+baseline-global-median = { path = "crates/baseline-global-median" }
+baseline-seasonal-median = { path = "crates/baseline-seasonal-median" }
+baseline-seasonal-shift-persistence = { path = "crates/baseline-seasonal-shift-persistence" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

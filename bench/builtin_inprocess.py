@@ -35,7 +35,7 @@ def frame(wire):
 
 
 def main():
-    proc = subprocess.Popen([str(ROOT / "bin" / "global-median")], env={**os.environ, "PORT": "8198", "LOG_LEVEL": "warning"})
+    proc = subprocess.Popen([str(ROOT / "bin" / "baseline-global-median")], env={**os.environ, "PORT": "8198", "LOG_LEVEL": "warning"})
     try:
         for _ in range(200):
             try:

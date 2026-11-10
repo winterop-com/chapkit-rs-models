@@ -1,0 +1,19 @@
+[package]
+name = "baseline-bench"
+description = "Times the baselines in-process at any data size, for bench/scale.py"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+baseline-core.workspace = true
+baseline-global-median.workspace = true
+baseline-seasonal-median.workspace = true
+baseline-seasonal-shift-persistence.workspace = true
+chapkit.workspace = true
+cpu-time.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

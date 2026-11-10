@@ -8,7 +8,7 @@ use ridge::{RidgeConfig, RidgeModel};
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if std::env::args().nth(1).as_deref() == Some("demo") {
-        return baselines::demo::run("ridge", &RidgeModel, &RidgeConfig::default());
+        return baseline_core::fixture::demo("ridge", &RidgeModel, &RidgeConfig::default());
     }
     chapkit::Service::new("ridge", "Ridge regression", RidgeModel)
         .description("Ridge regression on covariates around a per-location mean")

@@ -8,17 +8,26 @@ The library is expected as a sibling checkout: clone `chapkit-rs` next to this r
 (`chap-workspace/rs/chapkit-rs` and `chap-workspace/rs/chapkit-rs-models`).
 
 Each model package is a crate under `crates/`; the root holds the workspace, the HTTP benchmark (`bench/`)
-and helper scripts.
+and helper scripts. The ports of chap-core's baselines are prefixed `baseline-`, and each is checked against
+chap-core number for number.
+
+**How a forecast is calculated** is in each package's `src/model.rs`: plain, commented functions over numbers,
+with no tables, threads or HTTP (for example `crates/baseline-seasonal-shift-persistence/src/model.rs`).
+`src/lib.rs` connects that calculation to chapkit, and `src/main.rs` is the binary.
 
 | crate | what |
 |---|---|
-| `crates/baselines` | chap-core's built-in baselines (`global_median`, `seasonal_median`, `seasonal_shift_persistence`), ported and checked against chap-core number for number. One binary per model. |
+| `crates/baseline-global-median` | chap-core's `global_median`: every period forecast from all of a location's observations. |
+| `crates/baseline-seasonal-median` | chap-core's `seasonal_median`: each period forecast from the same month or week in earlier years. |
+| `crates/baseline-seasonal-shift-persistence` | chap-core's `seasonal_shift_persistence`: the last value, scaled by how cases changed over the same horizon and season before. |
+| `crates/baseline-core` | Shared by the baselines: the quantile step, chap-core's outputs for the parity tests, the demo runner, synthetic data. |
+| `crates/baseline-bench` | Times the baselines at any data size, for `make bench-scale`. |
 | `crates/ridge` | Ridge regression on covariates with a search space and tensor checkpoints; the reference model for xAI and HPO. |
 
 ```sh
 make release                     # binaries into ./bin
-bin/global-median                # serve on 127.0.0.1:8000 (HOST, PORT to change)
-bin/seasonal-median demo         # run once in-process and time it
+bin/baseline-global-median       # serve on 127.0.0.1:8000 (HOST, PORT to change)
+bin/baseline-seasonal-median demo  # run once in-process and time it
 make check                       # lint + tests (parity with chap-core, checkpoints, HTTP flow)
 make fixtures                    # regenerate the golden outputs from a chap-core checkout
 make bench                       # criterion: the models in-process
