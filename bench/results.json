@@ -1,0 +1,62 @@
+{
+  "dataset": {
+    "train_rows": 2400,
+    "future_rows": 60
+  },
+  "python-chapkit": {
+    "startup_ms": 908.1,
+    "rss_idle_mb": 150.3,
+    "chap_core_cycle_s": 4.076,
+    "raw_cycle_ms": 74.0,
+    "rss_after_100_predictions_mb": 211.8,
+    "load_predictions_per_s": 6.4,
+    "load_cpu_s": 11.25,
+    "load_cores_used": 0.99,
+    "cpu_ms_per_prediction": 154.11,
+    "peak_rss_mb": 267.5
+  },
+  "chapkit-rs": {
+    "startup_ms": 19.2,
+    "rss_idle_mb": 16.2,
+    "chap_core_cycle_s": 0.013,
+    "raw_cycle_ms": 6.9,
+    "rss_after_100_predictions_mb": 35.4,
+    "load_predictions_per_s": 1225.2,
+    "load_cpu_s": 27.71,
+    "load_cores_used": 2.77,
+    "cpu_ms_per_prediction": 2.26,
+    "predict_sync_p50_ms": 2.67,
+    "predict_sync_p99_ms": 4.48,
+    "sync_load_requests_per_s": 3807.58,
+    "sync_load_failed": "0",
+    "sync_load_p50_ms": 2.0,
+    "sync_load_p99_ms": 3.0,
+    "sync_load_cores_used": 6.98,
+    "sync_load_cpu_ms_per_request": 1.86,
+    "peak_rss_mb": 1244.9
+  },
+  "chapkit-rs-no-eager": {
+    "startup_ms": 15.9,
+    "rss_idle_mb": 16.2,
+    "chap_core_cycle_s": 4.027,
+    "raw_cycle_ms": 24.3,
+    "rss_after_100_predictions_mb": 36.7,
+    "load_predictions_per_s": 810.4,
+    "load_cpu_s": 18.73,
+    "load_cores_used": 1.87,
+    "cpu_ms_per_prediction": 2.31,
+    "predict_sync_p50_ms": 2.75,
+    "predict_sync_p99_ms": 4.49,
+    "sync_load_requests_per_s": 3122.71,
+    "sync_load_failed": "0",
+    "sync_load_p50_ms": 2.0,
+    "sync_load_p99_ms": 12.0,
+    "sync_load_cores_used": 5.92,
+    "sync_load_cpu_ms_per_request": 1.91,
+    "peak_rss_mb": 848.4
+  },
+  "sizes": {
+    "chapkit_rs_binary_mb": 11.9,
+    "python_chapkit_venv_mb": 522.4
+  }
+}

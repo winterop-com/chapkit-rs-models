@@ -35,5 +35,9 @@ path = "src/bin/seasonal_shift_persistence.rs"
 name = "models"
 harness = false
 
+[features]
+# Lets DATABASE_URL take turso: URLs (turso:///path/to.db).
+turso = ["chapkit/turso"]
+
 [lints]
 workspace = true

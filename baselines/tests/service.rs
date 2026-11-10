@@ -14,10 +14,11 @@ use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
-fn app() -> Router {
+async fn app() -> Router {
     chapkit::Service::new("global-median", "Global median", baselines::GlobalMedian)
         .database(":memory:")
         .app()
+        .await
         .unwrap()
         .build()
         .0
@@ -62,7 +63,7 @@ fn fixture() -> Value {
 
 #[tokio::test]
 async fn chap_core_flow() {
-    let app = app();
+    let app = app().await;
     let fx = fixture();
 
     let (s, health, _) = call(&app, "GET", "/health", None).await;
@@ -236,7 +237,7 @@ async fn chap_core_flow() {
 
 #[tokio::test]
 async fn failed_jobs_and_problem_responses() {
-    let app = app();
+    let app = app().await;
     let fx = fixture();
 
     let missing = ulid::Ulid::generate().to_string();

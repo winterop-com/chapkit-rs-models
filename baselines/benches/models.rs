@@ -37,7 +37,7 @@ fn data(locs: usize, periods: usize, horizon: usize) -> (DataFrame, DataFrame) {
 }
 
 fn bench_model<M: Model>(c: &mut Criterion, name: &str, model: &M, config: &M::Config) {
-    for (locs, periods) in [(5, 36), (50, 120)] {
+    for (locs, periods) in [(5, 36), (20, 120), (50, 120)] {
         let (train, future) = data(locs, periods, 3);
         let run = RunInfo::with_periods(3);
         let trained = model

@@ -1,7 +1,10 @@
-.PHONY: help check build release lint fmt test bench demo fixtures clean
+.PHONY: help check build release lint fmt test bench bench-http demo fixtures clean
 
 BINS := global-median seasonal-median seasonal-shift-persistence ridge
 CHAP_CORE ?= ../../chap-core
+# FEATURES=turso builds the binaries with the turso store backend.
+FEATURES ?=
+CARGO_FEATURES := $(if $(FEATURES),--features $(FEATURES),)
 
 help:
 	@echo "Usage: make [target]"
@@ -9,10 +12,11 @@ help:
 	@echo "Targets:"
 	@echo "  check     lint + test; run before every commit"
 	@echo "  build     Build all example crates (debug)"
-	@echo "  release   Build release binaries into ./bin"
+	@echo "  release   Build release binaries into ./bin (FEATURES=turso for the turso backend)"
 	@echo "  lint      Format and run clippy (warnings are errors)"
 	@echo "  test      Run all tests (parity with chap-core, checkpoints, HTTP flow)"
 	@echo "  bench     Run criterion benchmarks (BENCH=<filter> to narrow)"
+	@echo "  bench-http  Compare against Python chapkit over HTTP (bench/run.py; needs ../../chapkit/.venv)"
 	@echo "  demo      Run every model once in-process and time it"
 	@echo "  fixtures  Regenerate baseline golden outputs from chap-core (CHAP_CORE=$(CHAP_CORE))"
 	@echo "  clean     Remove build output"
@@ -23,7 +27,7 @@ build:
 	@cargo build --workspace --all-targets
 
 release:
-	@cargo build --workspace --release
+	@cargo build --workspace --release $(CARGO_FEATURES)
 	@rm -rf bin && mkdir -p bin
 	@for b in $(BINS); do cp target/release/$$b bin/$$b; done
 	@ls -lh bin | awk 'NR>1 {print $$5, "bin/"$$9}'
@@ -40,6 +44,9 @@ test:
 
 bench:
 	@cargo bench --workspace -- $(BENCH)
+
+bench-http: release
+	@python3 bench/run.py
 
 demo:
 	@for b in $(BINS); do cargo run -q --release --bin $$b -- demo || exit 1; echo; done
