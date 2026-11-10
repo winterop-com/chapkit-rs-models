@@ -73,7 +73,26 @@ services:
     volumes:
       - seasonal-shift-persistence-data:/work/data
 
+  persistence:
+    <<: *model
+    build:
+      context: ..
+      dockerfile: chapkit-rs/docker/Dockerfile
+      args:
+        WORKSPACE: chapkit-rs-models
+        BIN: baseline-persistence
+        GIT_REVISION: ${GIT_REVISION:-}
+    image: chapkit-rs-models/baseline-persistence
+    ports:
+      - "8004:8000"
+    environment:
+      <<: *environment
+      SERVICEKIT_HOST: persistence
+    volumes:
+      - persistence-data:/work/data
+
 volumes:
   global-median-data:
   seasonal-median-data:
   seasonal-shift-persistence-data:
+  persistence-data:

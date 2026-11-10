@@ -76,8 +76,9 @@ pub fn median_per_level<'a>(sets: impl IntoIterator<Item = &'a Vec<f64>>) -> Opt
     )
 }
 
-/// The median of a non-empty list: the middle value, or the mean of the two middle values.
-fn median(values: &mut [f64]) -> f64 {
+/// The median of a non-empty list: the middle value, or the mean of the two middle values
+/// (numpy `median`). Sorts `values`.
+pub fn median(values: &mut [f64]) -> f64 {
     values.sort_unstable_by(f64::total_cmp);
     let n = values.len();
     let at = |i: usize| values.get(i).copied().unwrap_or(f64::NAN);

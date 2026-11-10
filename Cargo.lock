@@ -312,6 +312,7 @@ version = "1.0.1"
 dependencies = [
  "baseline-core",
  "baseline-global-median",
+ "baseline-persistence",
  "baseline-seasonal-median",
  "baseline-seasonal-shift-persistence",
  "chapkit",
@@ -343,6 +344,18 @@ dependencies = [
  "tokio",
  "tower",
  "ulid",
+]
+
+[[package]]
+name = "baseline-persistence"
+version = "1.0.1"
+dependencies = [
+ "baseline-core",
+ "chapkit",
+ "criterion",
+ "rayon",
+ "serde",
+ "tokio",
 ]
 
 [[package]]

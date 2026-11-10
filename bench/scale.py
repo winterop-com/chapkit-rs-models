@@ -21,7 +21,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 CHAP_PY = ROOT.parent.parent / "chap-core" / ".venv" / "bin" / "python"
 RUST = ROOT / "target" / "release" / "baseline-bench"
-MODELS = ["global_median", "seasonal_median", "seasonal_shift_persistence"]
+MODELS = ["global_median", "persistence", "seasonal_median", "seasonal_shift_persistence"]
 # (locations, periods): a locations sweep at 10 years of months up to facility-level counts
 # (100,000 locations), a periods sweep at 100 locations, then both growing together.
 SIZES = [(100, 120), (500, 120), (1000, 120), (2000, 120), (5000, 120),

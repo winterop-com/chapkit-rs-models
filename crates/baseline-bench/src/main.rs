@@ -15,6 +15,7 @@ use cpu_time::ProcessTime;
 
 use baseline_core::synthetic::train_and_future;
 use baseline_global_median::GlobalMedian;
+use baseline_persistence::Persistence;
 use baseline_seasonal_median::SeasonalMedian;
 use baseline_seasonal_shift_persistence::SeasonalShiftPersistence;
 use chapkit::{DataFrame, Model, NoConfig, PredictInput, RunInfo, TrainInput};
@@ -123,6 +124,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (locs, periods): (usize, usize) = (locs.parse()?, periods.parse()?);
     let line = match model.as_str() {
         "global_median" => time(&GlobalMedian, &NoConfig::default(), locs, periods)?,
+        "persistence" => time(&Persistence, &NoConfig::default(), locs, periods)?,
         "seasonal_median" => time(&SeasonalMedian, &NoConfig::default(), locs, periods)?,
         "seasonal_shift_persistence" => time(
             &SeasonalShiftPersistence,

@@ -23,6 +23,7 @@ ulid = { version = "3", features = ["serde"] }
 criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
 baseline-core = { path = "crates/baseline-core" }
 baseline-global-median = { path = "crates/baseline-global-median" }
+baseline-persistence = { path = "crates/baseline-persistence" }
 baseline-seasonal-median = { path = "crates/baseline-seasonal-median" }
 baseline-seasonal-shift-persistence = { path = "crates/baseline-seasonal-shift-persistence" }
 
