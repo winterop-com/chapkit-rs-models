@@ -25,6 +25,9 @@ more on several, and use less memory at every size ([details](performance.md)).
 
 ## Who this book is for
 
+- **New here?** Start with the tutorials: [set up your machine](tutorials/setup.md), [run a baseline and read
+  its forecast](tutorials/first-forecast.md), [run them through chap-core](tutorials/chap-core.md), and [run them
+  in Docker](tutorials/docker.md).
 - **To know how a forecast is calculated**, read [How a forecast is made](forecasts.md) and the page of the
   model. Each page explains the method in words and formulas, with a worked example; the code in each
   package's `src/model.rs` follows the same steps.

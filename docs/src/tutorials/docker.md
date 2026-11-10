@@ -1,0 +1,69 @@
+# Run the models in Docker
+
+You run the models as containers, the way they are deployed next to chap-core: from the published images, or
+built from source.
+
+## Before you start
+
+- Docker running.
+- For building from source: both repositories checked out side by side ([Set up your machine](setup.md)).
+
+## 1. Run a published image
+
+```sh
+docker run -d --name gm -p 8001:8000 -v gm-data:/work/data \
+  ghcr.io/winterop-com/chapkit-rs-models/baseline-global-median
+docker ps --filter name=gm --format '{{.Names}} {{.Status}}'
+```
+
+```text
+gm Up 6 seconds (healthy)
+```
+
+The image holds just the model binary (about 70 MB in all). It listens on port 8000, keeps its database in the
+`/work/data` volume, and reports its health to Docker. Everything from [Run a baseline and read its
+forecast](first-forecast.md) works against it on port 8001. Stop it with `docker rm -f gm`.
+
+## 2. Or build and run all three with compose
+
+```sh
+cd chapkit-rs-models
+make docker-up
+```
+
+The services start with `health: starting`; a few seconds later:
+
+```sh
+docker compose ps --format 'table {{.Service}}\t{{.Status}}\t{{.Ports}}'
+```
+
+```text
+SERVICE                      STATUS                   PORTS
+global-median                Up 8 seconds (healthy)   0.0.0.0:8001->8000/tcp, [::]:8001->8000/tcp
+seasonal-median              Up 8 seconds (healthy)   0.0.0.0:8002->8000/tcp, [::]:8002->8000/tcp
+seasonal-shift-persistence   Up 8 seconds (healthy)   0.0.0.0:8003->8000/tcp, [::]:8003->8000/tcp
+```
+
+They run on ports 8001 to 8003, each with its own volume, a read-only filesystem and a health check. The images are
+built with chapkit-rs's shared Dockerfile (see the chapkit-rs book, *Docker*). `make docker-down` stops them;
+the data stays in the volumes.
+
+## 3. Connect them to chap-core
+
+Set `SERVICEKIT_ORCHESTRATOR_URL` to chap-core's registration endpoint, and put the containers on chap-core's
+Docker network so chap-core can reach them by service name:
+
+```sh
+SERVICEKIT_ORCHESTRATOR_URL='http://chap:8000/v2/services/$register' docker compose up -d
+```
+
+(The address depends on your chap-core deployment; with chap-devops, `chap-devops status` shows chap-core's.)
+
+## If something goes wrong
+
+- **`unhealthy`**: `docker logs <container>` shows why; the health check calls the service's `/health`.
+- **`denied` when pulling**: the image is not public yet; build it from source with `make docker-build`.
+
+## Next steps
+
+- [Performance](../performance.md): what to expect at 5,000 to 100,000 locations.

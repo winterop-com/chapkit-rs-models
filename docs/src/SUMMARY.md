@@ -2,6 +2,13 @@
 
 [Introduction](introduction.md)
 
+# Tutorials
+
+- [Set up your machine](tutorials/setup.md)
+- [Run a baseline and read its forecast](tutorials/first-forecast.md)
+- [Run the baselines through chap-core](tutorials/chap-core.md)
+- [Run the models in Docker](tutorials/docker.md)
+
 # Understanding the forecasts
 
 - [How a forecast is made](forecasts.md)
