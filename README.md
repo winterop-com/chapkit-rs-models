@@ -57,8 +57,9 @@ warns when there is nothing new to publish).
 ## Running a service
 
 Every binary serves the full chapkit API plus the chapkit-rs extensions `$predict-sync` (a forecast returned
-directly, no job) and `$explain` (LIME or KernelSHAP for one forecast cell, in-process). The main
-environment variables:
+directly, no job) and `$explain` (LIME or KernelSHAP for one forecast cell, in-process). Besides `serve`, each
+binary has `test` (chap-core's flow against a running service), `eval` (chap-core's backtest and metrics,
+in-process, no server) and `demo`. The main environment variables:
 
 | variable | default | |
 |---|---|---|

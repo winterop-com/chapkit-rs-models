@@ -4,18 +4,20 @@
 
 Runs chap-core's built-in baselines (bench/scale_builtin.py) and the Rust ports (baseline-bench)
 on the same generated data, both writing every forecast, and compares all 100 samples of every
-forecast row. Prints the largest difference per model and size; fails if any exceeds 1e-9
-relative.
+forecast row. Prints the largest difference and the number of samples that are not bit-identical
+per model and size; fails if any sample is not bit-identical. CHAP_PY=<python> picks chap-core's
+environment (default ../../chap-core/.venv).
 """
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CHAP_PY = ROOT.parent.parent / "chap-core" / ".venv" / "bin" / "python"
+CHAP_PY = os.environ.get("CHAP_PY") or ROOT.parent.parent / "chap-core" / ".venv" / "bin" / "python"
 RUST = ROOT / "target" / "release" / "baseline-bench"
 MODELS = ["global_median", "persistence", "seasonal_median", "seasonal_shift_persistence"]
 SIZES = [(100, 120), (1000, 120), (5000, 120), (100, 1000), (1000, 1000)]
@@ -40,7 +42,7 @@ def main():
             for locs, periods in SIZES:
                 rs = run([RUST, model, locs, periods], f"{tmp}/rs.json")
                 py = run([CHAP_PY, ROOT / "bench" / "scale_builtin.py", model, locs, periods], f"{tmp}/py.json")
-                worst = 0.0
+                worst, inexact = 0.0, 0
                 problems = []
                 if rs.keys() != py.keys():
                     problems.append(f"rows differ: {len(rs.keys() - py.keys())} only in Rust, {len(py.keys() - rs.keys())} only in chap-core")
@@ -50,11 +52,12 @@ def main():
                         problems.append(f"{k}: {len(a)} vs {len(b)} samples")
                         continue
                     for x, y in zip(a, b):
+                        inexact += x != y
                         worst = max(worst, abs(x - y) / max(abs(y), 1.0))
-                ok = not problems and worst <= 1e-9
+                ok = not problems and inexact == 0
                 failed += not ok
                 cells = len(rs) * 100
-                print(f"{'ok  ' if ok else 'FAIL'} {model:28} {locs:>5} x {periods:<5} {len(rs):>6} rows, {cells:>9,} samples, max relative difference {worst:.1e}"
+                print(f"{'ok  ' if ok else 'FAIL'} {model:28} {locs:>5} x {periods:<5} {len(rs):>6} rows, {cells:>9,} samples, {inexact:>6} not bit-identical, max relative difference {worst:.1e}"
                       + ("" if not problems else "  " + "; ".join(problems[:3])), flush=True)
     sys.exit(1 if failed else 0)
 

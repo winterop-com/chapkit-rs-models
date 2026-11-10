@@ -7,6 +7,7 @@
 - [Set up your machine](tutorials/setup.md)
 - [Run a baseline and read its forecast](tutorials/first-forecast.md)
 - [Run the baselines through chap-core](tutorials/chap-core.md)
+- [Run the ports in a full Chap stack](tutorials/full-stack.md)
 - [Run the models in Docker](tutorials/docker.md)
 
 # Understanding the forecasts

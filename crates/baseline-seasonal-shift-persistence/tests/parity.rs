@@ -2,7 +2,7 @@
 //! The Rust port must reproduce chap-core's `seasonal_shift_persistence` number for number, and survive a
 //! checkpoint round trip.
 
-use baseline_core::fixture::{check_parity, checkpoint_round_trip};
+use baseline_core::fixture::{Match, check_parity, checkpoint_round_trip};
 use baseline_seasonal_shift_persistence::SeasonalShiftPersistence;
 use chapkit::NoConfig;
 
@@ -13,6 +13,7 @@ fn matches_chap_core_monthly_and_weekly() {
         "seasonal_shift_persistence",
         &SeasonalShiftPersistence,
         &NoConfig {},
+        Match::Exact,
     )
     .unwrap();
     check_parity(
@@ -20,6 +21,7 @@ fn matches_chap_core_monthly_and_weekly() {
         "seasonal_shift_persistence",
         &SeasonalShiftPersistence,
         &NoConfig {},
+        Match::Exact,
     )
     .unwrap();
 }

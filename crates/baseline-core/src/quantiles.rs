@@ -31,23 +31,36 @@ static QUANTILE_LEVELS: LazyLock<[f64; N_SAMPLES]> = LazyLock::new(|| {
 /// [`QUANTILE_LEVELS`]. `None` when there are no values.
 ///
 /// Quantiles use linear interpolation, numpy's default: sort the values, and for level q
-/// take position q * (n - 1); between two values, interpolate linearly.
+/// take position q * (n - 1); between two values, interpolate linearly. The arithmetic is
+/// numpy's step for step (`np.quantile`, `_lerp`), so the samples are bit for bit chap-core's:
+/// from the lower value `a` up when the fraction `t` is below 0.5 (`a + (b - a) * t`), from the
+/// upper value `b` down otherwise (`b - (b - a) * (1 - t)`).
 pub fn quantile_samples(values: &[f64]) -> Option<Vec<f64>> {
     if values.is_empty() {
         return None;
     }
     let mut sorted = values.to_vec();
     sorted.sort_unstable_by(f64::total_cmp);
-    let last = (sorted.len() - 1) as f64;
+    let last = sorted.len() - 1;
     let at = |i: usize| sorted.get(i).copied().unwrap_or(f64::NAN);
     Some(
         QUANTILE_LEVELS
             .iter()
             .map(|&q| {
-                let position = q * last;
-                let below = position.floor() as usize;
-                let above = position.ceil() as usize;
-                at(below) + (at(above) - at(below)) * (position - below as f64)
+                let position = last as f64 * q;
+                // At or past the last value numpy takes the last value itself.
+                if position >= last as f64 {
+                    return at(last);
+                }
+                let below = position.floor();
+                let t = position - below;
+                let (a, b) = (at(below as usize), at(below as usize + 1));
+                let difference = b - a;
+                if t >= 0.5 {
+                    b - difference * (1.0 - t)
+                } else {
+                    a + difference * t
+                }
             })
             .collect(),
     )
@@ -101,6 +114,14 @@ mod tests {
         assert!((l[0] - 0.5 / 99.0).abs() < 1e-15);
         assert_eq!((l[49], l[50]), (0.5, 0.5));
         assert!((l[99] - 98.5 / 99.0).abs() < 1e-15);
+    }
+
+    #[test]
+    fn interpolates_bit_for_bit_like_numpy() {
+        // np.quantile([0.1, 0.7, 1.3, 2.9], level 16) is 0.39999999999999997; `a + (b - a) * t`
+        // gives 0.4.
+        let s = quantile_samples(&[2.9, 0.1, 1.3, 0.7]).unwrap_or_default();
+        assert_eq!(s[16].to_bits(), 0.399_999_999_999_999_97_f64.to_bits());
     }
 
     #[test]

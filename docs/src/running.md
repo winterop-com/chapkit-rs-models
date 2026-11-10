@@ -49,6 +49,17 @@ runs chap-core's flow against it (the same test as `chapkit-rs test`): configura
 `$validate`, training and forecasting jobs, and a check of every stored forecast, on generated data. It finds the
 service on `--host`/`--port` (the same defaults and variables as `serve`), or `--url`.
 
+## Backtest, without a server
+
+```sh
+bin/baseline-seasonal-median eval --data laos.csv --periods 12 --splits 7 --stride 4
+bin/baseline-seasonal-median eval --locations 50     # generated data
+```
+
+runs chap-core's backtest in-process: rolling train and forecast windows, future weather from seasonal
+climatology, and chap-core's metrics (CRPS, MAE, RMSE, coverage, ...) overall and by horizon. The numbers match
+chap-core 2.7.0's; see chapkit-rs' [backtest guide](https://winterop-com.github.io/chapkit-rs/guide/eval.html).
+
 ## Try once, without a server
 
 ```sh

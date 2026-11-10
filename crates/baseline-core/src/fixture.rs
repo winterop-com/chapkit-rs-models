@@ -35,13 +35,42 @@ impl Fixture {
     }
 }
 
+/// How closely a port's samples must match chap-core's.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Match {
+    /// Bit for bit: the same `f64` (`to_bits()` equality).
+    Exact,
+    /// At most this many representable `f64`s apart (units in the last place), for calculations
+    /// that call the platform's `exp` and `ln`: numpy and Rust both take them from the C library,
+    /// whose last bit differs between platforms (macOS and Linux), so chap-core's own output does.
+    Ulps(u64),
+}
+
+impl Match {
+    fn accepts(self, got: f64, want: f64) -> bool {
+        if got.to_bits() == want.to_bits() {
+            return true;
+        }
+        match self {
+            Match::Exact => false,
+            Match::Ulps(n) => {
+                got.is_finite()
+                    && want.is_finite()
+                    && got.is_sign_negative() == want.is_sign_negative()
+                    && got.to_bits().abs_diff(want.to_bits()) <= n
+            }
+        }
+    }
+}
+
 /// Train and predict `model` on fixture `case` and compare with chap-core's output for `name`,
-/// sample by sample (relative tolerance 1e-9).
+/// sample by sample, as closely as `matching` asks.
 pub fn check_parity<M: Model>(
     case: &str,
     name: &str,
     model: &M,
     config: &M::Config,
+    matching: Match,
 ) -> Result<(), BoxError> {
     let fx = Fixture::load(case)?;
     let run = RunInfo::with_periods(3);
@@ -77,6 +106,8 @@ pub fn check_parity<M: Model>(
         pred.require(cols::TIME_PERIOD)?,
         pred.require(cols::LOCATION)?,
     );
+    // Every mismatch is counted, and the largest one reported.
+    let (mut mismatches, mut worst, mut worst_at) = (0usize, 0.0f64, String::new());
     for row in 0..pred.n_rows() {
         let k = key(
             loc.str_at(row).unwrap_or_default(),
@@ -90,12 +121,21 @@ pub fn check_parity<M: Model>(
                 .column(&cols::sample(i))
                 .and_then(|c| c.f64_at(row))
                 .ok_or_else(|| format!("{case}/{name} {k}: missing sample_{i}"))?;
-            if (got - w).abs() > 1e-9 * w.abs().max(1.0) {
-                return Err(
-                    format!("{case}/{name} {k} sample_{i}: got {got}, chap-core {w}").into(),
-                );
+            if !matching.accepts(got, *w) {
+                mismatches += 1;
+                let difference = (got - w).abs();
+                if mismatches == 1 || difference > worst {
+                    worst = difference;
+                    worst_at = format!("{k} sample_{i}: got {got:e}, chap-core {w:e}");
+                }
             }
         }
+    }
+    if mismatches > 0 {
+        return Err(format!(
+            "{case}/{name}: {mismatches} samples differ, largest by {worst:e} at {worst_at}"
+        )
+        .into());
     }
     Ok(())
 }
