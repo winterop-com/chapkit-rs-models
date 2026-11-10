@@ -26,6 +26,7 @@ MODELS = {
     "global_median": "Global median",
     "seasonal_median": "Seasonal median",
     "seasonal_shift_persistence": "Seasonal shift persistence",
+    "persistence": "Persistence",
 }
 plt.rcParams.update({"font.size": 9, "svg.fonttype": "none", "axes.spines.top": False, "axes.spines.right": False})
 COLOR = "#2b6cb0"

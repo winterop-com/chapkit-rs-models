@@ -18,6 +18,7 @@
 - [Global median](models/global-median.md)
 - [Seasonal median](models/seasonal-median.md)
 - [Seasonal shift persistence](models/seasonal-shift-persistence.md)
+- [Persistence](models/persistence.md)
 
 # Trusting the results
 

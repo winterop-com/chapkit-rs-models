@@ -41,10 +41,11 @@ cd chapkit-rs-models
 make release
 ```
 
-The first build compiles all dependencies and takes a few minutes. It ends with the three binaries:
+The first build compiles all dependencies and takes a few minutes. It ends with the four binaries:
 
 ```text
 12M bin/baseline-global-median
+12M bin/baseline-persistence
 12M bin/baseline-seasonal-median
 12M bin/baseline-seasonal-shift-persistence
 ```

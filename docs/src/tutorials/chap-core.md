@@ -1,6 +1,6 @@
 # Run the baselines through chap-core
 
-You start chap-core, register the three baselines with it, and let chap-core backtest them: build a dataset,
+You start chap-core, register the four baselines with it, and let chap-core backtest them: build a dataset,
 train and forecast repeatedly, and score the forecasts. This is the same path a model takes in a real Chap
 deployment.
 
@@ -29,16 +29,16 @@ chap-devops up --wait
 
 ## 2. Start the baselines and register them
 
-From `chapkit-rs-models`, in three terminals (or with `&`), one port each:
+From `chapkit-rs-models`, in four terminals (or with `&`), one port each:
 
 ```sh
 REV=$(git rev-parse HEAD)
-for model in global-median:8001 seasonal-median:8002 seasonal-shift-persistence:8003; do
+for model in global-median:8001 seasonal-median:8002 seasonal-shift-persistence:8003 persistence:8004; do
   name=${model%:*}; port=${model#*:}
   SERVICEKIT_ORCHESTRATOR_URL='http://localhost:8700/v2/services/$register' \
   SERVICEKIT_HOST=host.docker.internal SERVICEKIT_PORT=$port \
   HOST=0.0.0.0 PORT=$port GIT_REVISION=$REV \
-  bin/baseline-$name &
+  bin/baseline-$name serve &
 done
 ```
 
@@ -60,6 +60,7 @@ MODEL                       STATE      REACH                             LAST PI
 global-median               unmanaged  http://host.docker.internal:8001  4s ago
 seasonal-median             unmanaged  http://host.docker.internal:8002  4s ago
 seasonal-shift-persistence  unmanaged  http://host.docker.internal:8003  4s ago
+persistence                 unmanaged  http://host.docker.internal:8004  4s ago
 ```
 
 ## 4. Configure and backtest
@@ -67,8 +68,8 @@ seasonal-shift-persistence  unmanaged  http://host.docker.internal:8003  4s ago
 Still in `mychap`:
 
 ```sh
-for m in global-median seasonal-median seasonal-shift-persistence; do chap-devops models configs sync $m; done
-chap-devops models test global-median seasonal-median seasonal-shift-persistence --backtest --seed 7
+for m in global-median seasonal-median seasonal-shift-persistence persistence; do chap-devops models configs sync $m; done
+chap-devops models test global-median seasonal-median seasonal-shift-persistence persistence --backtest --seed 7
 ```
 
 ```text
@@ -80,6 +81,9 @@ seasonal-shift-persistence    pass       8s   crps 6.5  mae 8.1  rmse 11.3
 3 of 3 models pass
 ```
 
+(This output is from a run before persistence was added; the command now tests four models and prints a
+line for `persistence` too.)
+
 For each model chap-core created a dataset from the model's sample data, ran a backtest (train, forecast,
 compare with what happened, several times over) and computed the scores. Lower is better: here the seasonal
 models clearly beat the global median, because the data is seasonal.
@@ -87,7 +91,7 @@ models clearly beat the global median, because the data is seasonal.
 ## 5. Clean up
 
 ```sh
-kill %1 %2 %3          # or stop the three services in their terminals
+kill %1 %2 %3 %4       # or stop the four services in their terminals
 chap-devops down
 ```
 

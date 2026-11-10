@@ -55,6 +55,8 @@ Train + predict in milliseconds; peak memory in MB.
 At 100,000 locations a seasonal median forecast takes chap-core 33 seconds, plus 47 seconds to convert the
 data; the port takes 1 second on all cores, and decodes the data in 1.8 seconds.
 
+**Persistence** is not yet in these tables: `make bench-scale` includes it, but the results above predate it.
+
 ## Long histories: 100 locations, up to 5,000 months
 
 | model | size | chap-core | Rust, 1 core | Rust, all cores |
@@ -86,7 +88,7 @@ With few locations and very long series the gap is smallest: numpy handles one l
 ## At facility level, the data format matters
 
 At 100,000 locations a 10-year training request is 589 MB of JSON in chapkit's row format, and decoding it
-takes longer than running any of the three models. For facility-level forecasting, a more compact columnar
+takes longer than running any of the three models measured. For facility-level forecasting, a more compact columnar
 format between chap-core and model services would save more time than any further model speedup.
 
 ## How the ports got here

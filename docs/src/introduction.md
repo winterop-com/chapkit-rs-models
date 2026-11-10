@@ -12,8 +12,9 @@ chapkit HTTP API, so chap-core registers and runs it like any other chapkit mode
 | `baseline-global-median` | [Global median](models/global-median.md) | every future period gets all of the location's past observations |
 | `baseline-seasonal-median` | [Seasonal median](models/seasonal-median.md) | a future month gets the same month in earlier years |
 | `baseline-seasonal-shift-persistence` | [Seasonal shift persistence](models/seasonal-shift-persistence.md) | the last value, scaled by how cases changed at that time of year before |
+| `baseline-persistence` | [Persistence](models/persistence.md) | the last value, with a spread from how cases changed over the same distance before |
 
-The three are ports of chap-core's built-in **baselines** (`chap_core/models/builtin`). Baselines are the
+The four are ports of chap-core's built-in **baselines** (`chap_core/models/builtin`). Baselines are the
 yardstick for real models: a model that cannot beat "the same month last years" is not adding anything. They
 make no assumptions beyond the data and fit nothing, which also makes them good for checking a setup end to end.
 

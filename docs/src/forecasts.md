@@ -26,6 +26,7 @@ The models differ only in which values they pick:
 | global median | all observations of the location |
 | seasonal median | observations of the location in the same month (or week) of the year |
 | seasonal shift persistence | the last observed value, multiplied by ratios of earlier year-on-year changes |
+| persistence | the last observed value, moved by earlier changes over the same horizon (centred on their median) |
 
 The quantile levels are fixed (shared code in `baseline-core/src/quantiles.rs`):
 

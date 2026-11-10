@@ -31,10 +31,13 @@ and compares all samples of all forecast rows:
 The shift persistence difference is in the last bit of a floating-point number: multiplying the ratios in a
 different order rounds differently. It is far below anything a metric can see.
 
+Persistence is not yet in this table: `make bench-compare` includes it, but has not been run on it yet.
+
 ## 3. Through chap-core itself
 
 The packages have also been run as services registered with a real chap-core (2.6.0, through chap-devops), with
-`cdx models test --backtest`; all three pass. For global median and seasonal median the backtest scores (CRPS,
+`cdx models test --backtest`; all three pass (persistence, added later for chap-core 2.7.0, has not been run
+this way yet). For global median and seasonal median the backtest scores (CRPS,
 MAE, RMSE, coverage) are identical to those of chap-core's built-in baselines on the same datasets (chap-core
 2.6.0 has no built-in seasonal shift persistence to compare with through chap-core; the checks above cover it).
 See the chapkit-rs book, *End to end with chap-core*.
