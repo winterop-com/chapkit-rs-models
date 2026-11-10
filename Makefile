@@ -1,4 +1,4 @@
-.PHONY: help check build release lint fmt test bench bench-http bench-scale bench-compare demo fixtures clean
+.PHONY: help check build release lint fmt test bench bench-http bench-scale bench-compare demo fixtures docs docs-serve docs-figures clean
 
 BINS := baseline-global-median baseline-seasonal-median baseline-seasonal-shift-persistence
 CHAP_CORE ?= ../../chap-core
@@ -21,6 +21,9 @@ help:
 	@echo "  bench-compare  Check every forecast sample against chap-core's on the benchmark data"
 	@echo "  demo      Run every model once in-process and time it"
 	@echo "  fixtures  Regenerate baseline golden outputs from chap-core (CHAP_CORE=$(CHAP_CORE))"
+	@echo "  docs      Build the book (docs/book)"
+	@echo "  docs-serve  Serve the book with live reload"
+	@echo "  docs-figures  Redraw the book's figures from the models' output (after make release)"
 	@echo "  clean     Remove build output"
 
 check: lint test
@@ -61,6 +64,15 @@ demo:
 
 fixtures:
 	@$(CHAP_CORE)/.venv/bin/python scripts/gen_baseline_fixtures.py
+
+docs:
+	@mdbook build docs
+
+docs-serve:
+	@mdbook serve docs --open
+
+docs-figures:
+	@$(CHAP_CORE)/.venv/bin/python scripts/make_figures.py
 
 clean:
 	@cargo clean

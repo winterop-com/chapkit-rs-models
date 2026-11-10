@@ -11,6 +11,9 @@ Each model package is a crate under `crates/`; the root holds the workspace, the
 and helper scripts. The ports of chap-core's baselines are prefixed `baseline-`, and each is checked against
 chap-core number for number.
 
+**The book** (`make docs`, source in `docs/`) describes every model in full: the method, worked examples with
+real numbers, figures, fallbacks, and how the ports are checked against chap-core.
+
 **How a forecast is calculated** is in each package's `src/model.rs`: plain, commented functions over numbers,
 with no tables, threads or HTTP (for example `crates/baseline-seasonal-shift-persistence/src/model.rs`).
 `src/lib.rs` connects that calculation to chapkit, and `src/main.rs` is the binary.

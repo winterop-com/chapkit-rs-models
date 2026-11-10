@@ -117,7 +117,8 @@ pub fn checkpoint_round_trip<M: Model>(
     )?)
 }
 
-/// Train and predict once on the monthly fixture; print the timings and each row's median.
+/// Train and predict once on the monthly fixture; print the timings and each row's median. With
+/// `DEMO_OUTPUT=<file>`, also write the prediction table there as chapkit JSON (used for the book's figures).
 pub fn demo<M: Model>(name: &str, model: &M, config: &M::Config) -> Result<(), BoxError> {
     let fx = Fixture::monthly()?;
     let run = RunInfo::with_periods(6);
@@ -135,6 +136,9 @@ pub fn demo<M: Model>(name: &str, model: &M, config: &M::Config) -> Result<(), B
         "{name}: train {train_time:?}, predict {predict_time:?}, {} rows",
         pred.n_rows()
     );
+    if let Some(path) = std::env::var_os("DEMO_OUTPUT") {
+        std::fs::write(path, serde_json::to_vec(&pred)?)?;
+    }
     let (tp, loc) = (
         pred.require(cols::TIME_PERIOD)?,
         pred.require(cols::LOCATION)?,

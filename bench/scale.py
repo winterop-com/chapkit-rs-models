@@ -1,6 +1,7 @@
 """How chap-core's built-in baselines and the Rust ports scale with locations and periods.
 
-    python3 bench/scale.py        (from the chapkit-rs-models root; make bench-scale)
+    python3 bench/scale.py                     (from the chapkit-rs-models root; make bench-scale)
+    python3 bench/scale.py 50000x120 100000x120   (only these sizes, merged into the results file)
 
 Each size runs in its own process (bench/scale_builtin.py with chap-core's environment,
 the baseline-bench binary in release mode) so peak memory is per run. The Rust models run
@@ -21,9 +22,10 @@ ROOT = Path(__file__).resolve().parent.parent
 CHAP_PY = ROOT.parent.parent / "chap-core" / ".venv" / "bin" / "python"
 RUST = ROOT / "target" / "release" / "baseline-bench"
 MODELS = ["global_median", "seasonal_median", "seasonal_shift_persistence"]
-# (locations, periods): a locations sweep at 10 years of months, a periods sweep at 100 locations,
-# then both growing together.
+# (locations, periods): a locations sweep at 10 years of months up to facility-level counts
+# (100,000 locations), a periods sweep at 100 locations, then both growing together.
 SIZES = [(100, 120), (500, 120), (1000, 120), (2000, 120), (5000, 120),
+         (10000, 120), (20000, 120), (50000, 120), (100000, 120),
          (100, 500), (100, 1000), (100, 2000), (100, 5000),
          (1000, 1000), (2000, 2000)]
 TIMEOUT_S = 900
@@ -51,11 +53,15 @@ def timed(cmd, env=None):
 
 
 def main():
+    sizes = [tuple(map(int, a.split("x"))) for a in sys.argv[1:]] or SIZES
+    out = ROOT / "bench" / "scale_results.json"
+    # Runs of other sizes already in the results file are kept.
+    previous = json.loads(out.read_text()) if sys.argv[1:] and out.exists() else []
     subprocess.run(["cargo", "build", "-q", "--release", "-p", "baseline-bench"], cwd=ROOT, check=True)
     results = []
     for model in MODELS:
         gave_up = False
-        for locs, periods in SIZES:
+        for locs, periods in sizes:
             # Model runs without the JSON copy, so peak memory is the data plus the model.
             rs, rs_rss = timed([RUST, model, locs, periods], {"RAYON_NUM_THREADS": "1", "SCALE_NO_DECODE": "1"})
             rs_par, rs_par_rss = timed([RUST, model, locs, periods], {"SCALE_NO_DECODE": "1"})
@@ -72,7 +78,11 @@ def main():
                    "json_mb": rs_dec.get("json_mb") if isinstance(rs_dec, dict) else None, "chap_core": py, "chap_core_peak_mb": py_rss}
             results.append(row)
             print(json.dumps(row), flush=True)
-    (ROOT / "bench" / "scale_results.json").write_text(json.dumps(results, indent=1) + "\n")
+    done = {(r["model"], r["locations"], r["periods"]) for r in results}
+    kept = [r for r in previous if (r["model"], r["locations"], r["periods"]) not in done]
+    order = {s: i for i, s in enumerate(SIZES)}
+    merged = sorted(kept + results, key=lambda r: (MODELS.index(r["model"]), order.get((r["locations"], r["periods"]), len(order))))
+    out.write_text(json.dumps(merged, indent=1) + "\n")
 
 
 if __name__ == "__main__":

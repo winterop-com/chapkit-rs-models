@@ -38,15 +38,19 @@
 //! Port of chap-core's `seasonal_shift_persistence` baseline (version 1).
 
 use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex, PoisonError};
 
 use serde::{Deserialize, Serialize};
 
 use baseline_core::quantiles::quantile_samples;
 
+/// One horizon's ratios, by the season (month or week of the year) they end in.
+pub type BySeason = BTreeMap<u32, Vec<f64>>;
+
 /// Ratios `(y_t + 1) / (y_{t-h} + 1)` by horizon `h`, then by the season of `t`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SeasonalShifts {
-    by_horizon: BTreeMap<usize, BTreeMap<u32, Vec<f64>>>,
+    by_horizon: BTreeMap<usize, BySeason>,
 }
 
 impl SeasonalShifts {
@@ -67,79 +71,102 @@ impl SeasonalShifts {
                     list.push(ratio);
                 }
             }
-            let by_season: BTreeMap<u32, Vec<f64>> = by_season
+            let by_season: BySeason = by_season
                 .into_iter()
                 .enumerate()
                 .filter(|(_, ratios)| !ratios.is_empty())
-                .filter_map(|(season, ratios)| Some((u32::try_from(season).ok()?, ratios)))
+                .filter_map(|(season, mut ratios)| {
+                    ratios.shrink_to_fit();
+                    Some((u32::try_from(season).ok()?, ratios))
+                })
                 .collect();
             by_horizon.insert(h, by_season);
         }
         Self { by_horizon }
     }
 
-    /// Training, across locations: every location's ratios together (fallback 2).
-    pub fn pooled<'a>(all: impl IntoIterator<Item = &'a SeasonalShifts>) -> Self {
-        let mut by_horizon: BTreeMap<usize, BTreeMap<u32, Vec<f64>>> = BTreeMap::new();
-        for location in all {
-            for (h, by_season) in &location.by_horizon {
-                let pooled = by_horizon.entry(*h).or_default();
-                for (season, ratios) in by_season {
-                    pooled.entry(*season).or_default().extend_from_slice(ratios);
-                }
-            }
-        }
-        Self { by_horizon }
-    }
-
-    /// The ratios for a season and horizon, with fallback 1: the season's own ratios, else
-    /// those of the nearest seasons before and after it together, else those of every season.
-    /// `None` when the horizon has no ratios at all.
+    /// The ratios for a season and horizon, with fallback 1 (see [`for_season`]).
     pub fn ratios(&self, season: u32, horizon: usize) -> Option<Vec<f64>> {
-        let by_season = self.by_horizon.get(&horizon).filter(|m| !m.is_empty())?;
-        if let Some(ratios) = by_season.get(&season) {
-            return Some(ratios.clone());
-        }
-        let before = by_season.range(..season).next_back();
-        let after = by_season.range(season + 1..).next();
-        Some(match (before, after) {
-            (Some((_, a)), Some((_, b))) => [a.as_slice(), b.as_slice()].concat(),
-            _ => by_season.values().flatten().copied().collect(),
-        })
+        for_season(self.by_horizon.get(&horizon)?, season)
     }
 }
 
-/// The trained model: each location's ratios, and all locations' ratios pooled.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+/// Fallback 1, for one horizon's ratios by season: the season's own ratios, else those of the
+/// nearest seasons before and after it together, else those of every season. `None` when there
+/// are no ratios at all.
+fn for_season(by_season: &BySeason, season: u32) -> Option<Vec<f64>> {
+    if by_season.is_empty() {
+        return None;
+    }
+    if let Some(ratios) = by_season.get(&season) {
+        return Some(ratios.clone());
+    }
+    let before = by_season.range(..season).next_back();
+    let after = by_season.range(season + 1..).next();
+    Some(match (before, after) {
+        (Some((_, a)), Some((_, b))) => [a.as_slice(), b.as_slice()].concat(),
+        _ => by_season.values().flatten().copied().collect(),
+    })
+}
+
+/// The trained model: each location's ratios.
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct SeasonalShiftTrained {
     by_location: BTreeMap<String, SeasonalShifts>,
-    pooled: SeasonalShifts,
+    /// All locations' ratios pooled (fallback 2), by horizon. Not stored: built the first time a
+    /// forecast needs a horizon, so the ratios are not held twice when no location falls back.
+    #[serde(skip)]
+    pooled: Mutex<BTreeMap<usize, Arc<BySeason>>>,
+}
+
+impl Clone for SeasonalShiftTrained {
+    fn clone(&self) -> Self {
+        Self::new(self.by_location.clone())
+    }
 }
 
 impl SeasonalShiftTrained {
-    /// Put together the per-location ratios, pooling them for fallback 2.
+    /// The trained model, from each location's ratios.
     pub fn new(by_location: BTreeMap<String, SeasonalShifts>) -> Self {
-        let pooled = SeasonalShifts::pooled(by_location.values());
         Self {
             by_location,
-            pooled,
+            pooled: Mutex::default(),
         }
+    }
+
+    /// All locations' ratios for one horizon, by season, in location order.
+    fn pooled(&self, horizon: usize) -> Arc<BySeason> {
+        let mut cache = self.pooled.lock().unwrap_or_else(PoisonError::into_inner);
+        cache
+            .entry(horizon)
+            .or_insert_with(|| {
+                let mut by_season = BySeason::new();
+                for shifts in self.by_location.values() {
+                    for (season, ratios) in shifts.by_horizon.get(&horizon).into_iter().flatten() {
+                        by_season
+                            .entry(*season)
+                            .or_default()
+                            .extend_from_slice(ratios);
+                    }
+                }
+                Arc::new(by_season)
+            })
+            .clone()
     }
 
     /// The ratios to forecast with, following fallbacks 2 to 5: horizon by horizon from `horizon`
     /// down to 1, try the location's ratios and then the pooled ones; the first candidate with
     /// more than one ratio wins, else the first single ratio, else `[1]`.
     pub fn ratios(&self, location: &str, season: u32, horizon: usize) -> Vec<f64> {
-        let candidates: Vec<&SeasonalShifts> = self
-            .by_location
-            .get(location)
-            .into_iter()
-            .chain(std::iter::once(&self.pooled))
-            .collect();
+        let own = self.by_location.get(location);
         let mut first_single: Option<Option<Vec<f64>>> = None;
         for h in (1..=horizon).rev() {
-            for shifts in &candidates {
-                let ratios = shifts.ratios(season, h);
+            // The location's own ratios first, then all locations' (fallback 2).
+            let own_ratios = own.map(|shifts| shifts.ratios(season, h));
+            for ratios in own_ratios
+                .into_iter()
+                .chain(std::iter::once_with(|| for_season(&self.pooled(h), season)))
+            {
                 if ratios.as_ref().is_some_and(|r| r.len() > 1) {
                     return ratios.unwrap_or_default();
                 }
