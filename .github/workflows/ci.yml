@@ -21,9 +21,13 @@ jobs:
       - uses: actions/checkout@v7
         with:
           path: chapkit-rs-models
+      - id: lib
+        name: The chapkit-rs release to build against
+        run: echo "ref=v$(sed -n '/^\[workspace.metadata.chapkit-rs\]/,/^\[/s/^version = "\(.*\)"/\1/p' chapkit-rs-models/Cargo.toml)" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with:
           repository: winterop-com/chapkit-rs
+          ref: ${{ steps.lib.outputs.ref }}
           path: chapkit-rs
       - uses: dtolnay/rust-toolchain@stable
         with:
