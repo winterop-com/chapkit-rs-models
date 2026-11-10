@@ -23,7 +23,9 @@ make check                       # lint + tests (parity with chap-core, checkpoi
 make fixtures                    # regenerate the golden outputs from a chap-core checkout
 make bench                       # criterion: the models in-process
 make bench-http                  # the same model through Python chapkit and chapkit-rs over HTTP
+make bench-scale                 # chap-core's built-in baselines vs the Rust ports as data grows
 make release FEATURES=turso      # binaries that also accept turso: database URLs
+cargo build --features polars    # DataFrame::to_polars / from_polars for pandas-style models
 ```
 
 ## Running a service

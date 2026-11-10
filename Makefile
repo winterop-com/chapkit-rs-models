@@ -1,4 +1,4 @@
-.PHONY: help check build release lint fmt test bench bench-http demo fixtures clean
+.PHONY: help check build release lint fmt test bench bench-http bench-scale demo fixtures clean
 
 BINS := global-median seasonal-median seasonal-shift-persistence ridge
 CHAP_CORE ?= ../../chap-core
@@ -17,6 +17,7 @@ help:
 	@echo "  test      Run all tests (parity with chap-core, checkpoints, HTTP flow)"
 	@echo "  bench     Run criterion benchmarks (BENCH=<filter> to narrow)"
 	@echo "  bench-http  Compare against Python chapkit over HTTP (bench/run.py; needs ../../chapkit/.venv)"
+	@echo "  bench-scale  chap-core's built-in baselines vs the Rust ports, 100 to 5000 locations and periods"
 	@echo "  demo      Run every model once in-process and time it"
 	@echo "  fixtures  Regenerate baseline golden outputs from chap-core (CHAP_CORE=$(CHAP_CORE))"
 	@echo "  clean     Remove build output"
@@ -47,6 +48,9 @@ bench:
 
 bench-http: release
 	@python3 bench/run.py
+
+bench-scale:
+	@python3 bench/scale.py
 
 demo:
 	@for b in $(BINS); do cargo run -q --release --bin $$b -- demo || exit 1; echo; done
