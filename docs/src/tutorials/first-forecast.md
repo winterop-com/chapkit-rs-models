@@ -11,7 +11,7 @@ calls chap-core makes. Along the way you see what the data and the forecast look
 ## 1. Start the service
 
 ```sh
-PORT=8001 bin/baseline-seasonal-median
+bin/baseline-seasonal-median serve --port 8001
 ```
 
 Leave it running and open a second terminal. Check it is up:

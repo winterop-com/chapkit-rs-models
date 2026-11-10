@@ -12,7 +12,7 @@ help:
 	@echo "Targets:"
 	@echo "  check     lint + test; run before every commit"
 	@echo "  build     Build all example crates (debug)"
-	@echo "  release   Build release binaries into ./bin (FEATURES=turso for the turso backend)"
+	@echo "  release   Release binaries into ./bin, universal on macOS (FEATURES=turso for turso)"
 	@echo "  lint      Format and run clippy (warnings are errors)"
 	@echo "  test      Run all tests (parity with chap-core, checkpoints, HTTP flow)"
 	@echo "  bench     Run criterion benchmarks (BENCH=<filter> to narrow)"
@@ -25,7 +25,7 @@ help:
 	@echo "  docs-serve  Serve the book with live reload"
 	@echo "  docs-figures  Redraw the book's figures from the models' output (after make release)"
 	@echo "  docker-build  Build an image per model (chapkit-rs's shared Dockerfile; ../chapkit-rs needed)"
-	@echo "  docker-up     Build and start all models with docker compose (ports 8001-8003)"
+	@echo "  docker-up     Build and start all models with docker compose (ports 8001-8004)"
 	@echo "  docker-down   Stop them"
 	@echo "  clean     Remove build output"
 
@@ -34,10 +34,18 @@ check: lint test
 build:
 	@cargo build --workspace --all-targets
 
+# On macOS, one binary per model for both architectures (joined with lipo, as chap-devops ships
+# its macOS build); elsewhere a native build.
 release:
-	@cargo build --workspace --release $(CARGO_FEATURES)
+ifeq ($(shell uname -s),Darwin)
+	@for t in aarch64-apple-darwin x86_64-apple-darwin; do cargo build --release $(CARGO_FEATURES) --target $$t $(addprefix -p ,$(BINS)) || exit 1; done
+	@rm -rf bin && mkdir -p bin
+	@for b in $(BINS); do lipo -create -output bin/$$b target/aarch64-apple-darwin/release/$$b target/x86_64-apple-darwin/release/$$b; done
+else
+	@cargo build --release $(CARGO_FEATURES) $(addprefix -p ,$(BINS))
 	@rm -rf bin && mkdir -p bin
 	@for b in $(BINS); do cp target/release/$$b bin/$$b; done
+endif
 	@ls -lh bin | awk 'NR>1 {print $$5, "bin/"$$9}'
 
 lint:

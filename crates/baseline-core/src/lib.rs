@@ -41,28 +41,46 @@ pub fn info(note: &str, page: &str) -> ModelInfo {
     }
 }
 
-/// A baseline binary's `main`: serve `model` as a chapkit service on `HOST:PORT`, or, with the
-/// argument `demo`, train and predict once in-process on the chap-core fixture and print it.
+/// A baseline binary's command line: chapkit's subcommands (`serve`, `test`, `healthcheck`) and
+/// `demo`.
+#[derive(clap::Parser)]
+#[command(arg_required_else_help = true)]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(clap::Subcommand)]
+enum Command {
+    #[command(flatten)]
+    Chapkit(chapkit::cli::Command),
+    /// Run once on the chap-core fixture
+    Demo,
+}
+
+/// A baseline binary's `main`: chapkit's `serve`, `test` and `healthcheck`, or `demo`, which trains
+/// and predicts once in-process on the chap-core fixture and prints it. Errors are one line
+/// `error: ...` and exit code 1, as for every chapkit binary.
 ///
 /// `version` is the binary's crate version. chap-core stores a model template once per version,
 /// so every published change to a model needs a new version.
-pub async fn run<M: Model>(
+pub async fn run<M: Model + Clone>(
     id: &str,
     version: &str,
     title: &str,
     model: M,
     config: M::Config,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if std::env::args().nth(1).as_deref() == Some("demo") {
-        return fixture::demo(id, &model, &config);
-    }
-    chapkit::Service::new(id, title, model)
+) -> std::process::ExitCode {
+    let service = chapkit::Service::new(id, title, model.clone())
         .version(version)
         .description(format!(
             "Rust port of chap-core's {} baseline",
             id.replace('-', "_")
-        ))
-        .serve()
-        .await?;
-    Ok(())
+        ));
+    let cli: Cli = service.parse_args();
+    let result = match cli.command {
+        Command::Demo => fixture::demo(id, &model, &config),
+        Command::Chapkit(command) => service.run(command).await.map_err(Into::into),
+    };
+    chapkit::cli::exit_code(result)
 }

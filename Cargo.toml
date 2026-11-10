@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "1.0.1"
+version = "1.0.2"
 edition = "2024"
 authors = ["Morten Hansen <morten@winterop.com>"]
 publish = false
@@ -14,6 +14,7 @@ chapkit = { path = "../chapkit-rs" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 rayon = "1"
+clap = { version = "4", features = ["derive"] }
 cpu-time = "1"
 tokio = { version = "1", features = ["full"] }
 axum = { version = "0.8", features = ["macros"] }

@@ -245,7 +245,7 @@ def main():
     if not RS_BIN.exists():
         sys.exit("run `make release` first")
     # One dataset for everyone: 20 locations x 120 months of training data, 3 future months.
-    gen = Service("generator", [str(RS_BIN)], 8199)
+    gen = Service("generator", [str(RS_BIN), "serve"], 8199)
     q = "num_locations=20&num_periods=120&num_features=3&seed=1"
     train = {"data": http("GET", gen.base + "/api/v1/ml/$generate-sample-data?" + q)["data"]}
     sample = http("GET", gen.base + "/api/v1/ml/$generate-sample-data?kind=predict&" + q.replace("num_periods=120", "num_periods=3"))
@@ -255,8 +255,8 @@ def main():
     variants = [
         ("python-chapkit", [str(PY), "-m", "uvicorn", "main:app", "--port", "8101", "--log-level", "warning"], 8101, {},
          ROOT / "bench" / "python_global_median", False),
-        ("chapkit-rs", [str(RS_BIN)], 8102, {}, None, True),
-        ("chapkit-rs-no-eager", [str(RS_BIN)], 8103, {"CHAPKIT_EAGER_WAIT_MS": "0"}, None, True),
+        ("chapkit-rs", [str(RS_BIN), "serve"], 8102, {}, None, True),
+        ("chapkit-rs-no-eager", [str(RS_BIN), "serve"], 8103, {"CHAPKIT_EAGER_WAIT_MS": "0"}, None, True),
     ]
     results = {"dataset": {"train_rows": len(train["data"]["data"]), "future_rows": len(sample["future"]["data"])}}
     for name, cmd, port, env, cwd, has_sync in variants:

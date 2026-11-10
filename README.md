@@ -24,12 +24,14 @@ with no tables, threads or HTTP (for example `crates/baseline-seasonal-shift-per
 | `crates/baseline-global-median` | chap-core's `global_median`: every period forecast from all of a location's observations. |
 | `crates/baseline-seasonal-median` | chap-core's `seasonal_median`: each period forecast from the same month or week in earlier years. |
 | `crates/baseline-seasonal-shift-persistence` | chap-core's `seasonal_shift_persistence`: the last value, scaled by how cases changed over the same horizon and season before. |
+| `crates/baseline-persistence` | chap-core's `persistence` (version 2): the last value, with a spread from how cases changed over the same horizon before. |
 | `crates/baseline-core` | Shared by the baselines: the quantile step, chap-core's outputs for the parity tests, the demo runner, synthetic data. |
 | `crates/baseline-bench` | Times the baselines at any data size, for `make bench-scale`. |
 
 ```sh
 make release                     # binaries into ./bin
-bin/baseline-global-median       # serve on 127.0.0.1:8000 (HOST, PORT to change)
+bin/baseline-global-median serve # serve on 127.0.0.1:8000 (--host, --port, --database)
+bin/baseline-global-median test  # in another terminal: chap-core's flow against it
 bin/baseline-seasonal-median demo  # run once in-process and time it
 make check                       # lint + tests (parity with chap-core, checkpoints, HTTP flow)
 make fixtures                    # regenerate the golden outputs from a chap-core checkout
@@ -43,8 +45,8 @@ cargo build --features polars    # DataFrame::to_polars / from_polars for pandas
 ## Images
 
 Published for linux/amd64 and linux/arm64 on every push to `main`:
-`ghcr.io/winterop-com/chapkit-rs-models/baseline-global-median`, `.../baseline-seasonal-median` and
-`.../baseline-seasonal-shift-persistence` (tags `latest`, `sha-<commit>`). `make docker-up` builds and runs them
+`ghcr.io/winterop-com/chapkit-rs-models/baseline-global-median`, `.../baseline-seasonal-median`,
+`.../baseline-seasonal-shift-persistence` and `.../baseline-persistence` (tags `latest`, `sha-<commit>`). `make docker-up` builds and runs them
 locally with `compose.yml`.
 
 ## Running a service
@@ -55,8 +57,8 @@ environment variables:
 
 | variable | default | |
 |---|---|---|
-| `HOST`, `PORT` | 127.0.0.1, 8000 | listen address |
-| `DATABASE_URL` | in memory | set a file (`data/chapkit.db`, or `turso:///data/chapkit.db` with `FEATURES=turso`) for anything beyond a test: in memory, every stored prediction stays in RAM and a restart loses it |
+| `HOST`, `PORT` | 127.0.0.1, 8000 | listen address (also `serve --host`, `--port`) |
+| `DATABASE_URL` | in memory | (also `serve --database`) set a file (`data/chapkit.db`, or `turso:///data/chapkit.db` with `FEATURES=turso`) for anything beyond a test: in memory, every stored prediction stays in RAM and a restart loses it |
 | `SERVICEKIT_ORCHESTRATOR_URL` | unset | register with chap-core, e.g. `http://localhost:8700/v2/services/$register`; also set `SERVICEKIT_HOST`/`SERVICEKIT_PORT` to the address chap-core calls back on and `GIT_REVISION` |
 | `CHAPKIT_MAX_BODY_MB` | 1024 | largest accepted request body (chap-core sends whole datasets as JSON) |
 | `CHAPKIT_EAGER_WAIT_MS` | 1000 | hold a job submission until a fast job finishes, so chap-core's first poll sees it done |
