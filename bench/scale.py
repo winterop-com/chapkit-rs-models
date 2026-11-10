@@ -19,7 +19,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CHAP_PY = ROOT.parent.parent / "chap-core" / ".venv" / "bin" / "python"
+# CHAP_PY=<python> picks chap-core's environment (default: ../../chap-core/.venv).
+CHAP_PY = os.environ.get("CHAP_PY") or ROOT.parent.parent / "chap-core" / ".venv" / "bin" / "python"
 RUST = ROOT / "target" / "release" / "baseline-bench"
 MODELS = ["global_median", "persistence", "seasonal_median", "seasonal_shift_persistence"]
 # (locations, periods): a locations sweep at 10 years of months up to facility-level counts

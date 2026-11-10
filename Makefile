@@ -17,7 +17,7 @@ help:
 	@echo "  test      Run all tests (parity with chap-core, checkpoints, HTTP flow)"
 	@echo "  bench     Run criterion benchmarks (BENCH=<filter> to narrow)"
 	@echo "  bench-http  Compare against Python chapkit over HTTP (bench/run.py; needs ../../chapkit/.venv)"
-	@echo "  bench-scale  chap-core's built-in baselines vs the Rust ports, 100 to 5000 locations and periods"
+	@echo "  bench-scale  chap-core's built-in baselines vs the chapkit-rs ports, up to 100,000 locations"
 	@echo "  bench-compare  Check every forecast sample against chap-core's on the benchmark data"
 	@echo "  demo      Run every model once in-process and time it"
 	@echo "  fixtures  Regenerate baseline golden outputs from chap-core (CHAP_CORE=$(CHAP_CORE))"
