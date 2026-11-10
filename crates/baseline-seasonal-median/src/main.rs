@@ -7,7 +7,7 @@
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     baseline_core::run(
         "seasonal-median",
-        "Seasonal median",
+        "Seasonal median (crs)",
         baseline_seasonal_median::SeasonalMedian,
         chapkit::NoConfig {},
     )

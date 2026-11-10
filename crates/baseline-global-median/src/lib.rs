@@ -41,6 +41,7 @@ impl Model for GlobalMedian {
         baseline_core::info(
             "Baseline that uses all observed values for the same location as forecast samples for every period, \
              without smoothing or model fitting.",
+            "global-median",
         )
     }
 

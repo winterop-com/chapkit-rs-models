@@ -24,6 +24,7 @@ impl Model for SeasonalMedian {
         baseline_core::info(
             "Baseline that uses all observed values for the same location and month or week of the year as \
              forecast samples, without smoothing or model fitting.",
+            "seasonal-median",
         )
     }
 

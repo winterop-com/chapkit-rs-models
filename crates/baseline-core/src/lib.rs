@@ -17,14 +17,24 @@ use chapkit::{AssessedStatus, Model, ModelInfo, ModelMetadata};
 
 pub use quantiles::N_SAMPLES;
 
-/// Model info shared by the baselines.
-pub fn info(note: &str) -> ModelInfo {
+/// The models book, where each baseline has a page.
+const BOOK: &str = "https://winterop-com.github.io/chapkit-rs-models";
+
+/// Model info shared by the baselines. `page` is the model's page in the book (`global-median`).
+///
+/// The status is `red`, as chap-core rates its own built-in baselines: they are yardsticks to
+/// compare real models with, not forecasting models.
+pub fn info(note: &str, page: &str) -> ModelInfo {
     ModelInfo {
         model_metadata: ModelMetadata {
             author: Some("Morten Hansen".into()),
-            author_note: Some(note.into()),
-            author_assessed_status: Some(AssessedStatus::Green),
+            author_note: Some(format!(
+                "Rust port (chapkit-rs) of chap-core's built-in baseline. {note}"
+            )),
+            author_assessed_status: Some(AssessedStatus::Red),
             contact_email: Some("morten@winterop.com".into()),
+            repository_url: Some("https://github.com/winterop-com/chapkit-rs-models".into()),
+            documentation_url: Some(format!("{BOOK}/models/{page}.html")),
             ..ModelMetadata::default()
         },
         ..ModelInfo::default()

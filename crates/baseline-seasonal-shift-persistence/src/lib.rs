@@ -27,6 +27,7 @@ impl Model for SeasonalShiftPersistence {
         baseline_core::info(
             "Baseline that forecasts the last observed value for the same location, scaled by how cases changed \
              over the same horizon and time of year in the training data.",
+            "seasonal-shift-persistence",
         )
     }
 

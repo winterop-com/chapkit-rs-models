@@ -7,7 +7,7 @@
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     baseline_core::run(
         "global-median",
-        "Global median",
+        "Global median (crs)",
         baseline_global_median::GlobalMedian,
         chapkit::NoConfig {},
     )
