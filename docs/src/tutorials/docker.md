@@ -24,6 +24,20 @@ The image holds just the model binary (about 70 MB in all). It listens on port 8
 `/work/data` volume, and reports its health to Docker. Everything from [Run a baseline and read its
 forecast](first-forecast.md) works against it on port 8001. Stop it with `docker rm -f gm`.
 
+Or with chap-devops, which picks a free port and keeps track of it:
+
+```sh
+chap-devops run ghcr.io/winterop-com/chapkit-rs-models/baseline-global-median:latest
+chap-devops ps
+```
+
+(chap-devops wants an explicit tag such as `:latest`.) To check a running model the way chap-core uses it, the
+`chapkit-rs` command from the chapkit-rs book runs the whole flow against it:
+
+```sh
+chapkit-rs test --url http://localhost:5001      # the URL chap-devops printed
+```
+
 ## 2. Or build and run all three with compose
 
 ```sh
