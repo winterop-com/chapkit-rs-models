@@ -41,13 +41,16 @@ cd chapkit-rs-models
 make release
 ```
 
-The first build compiles all dependencies and takes a few minutes. It ends with the four binaries:
+The first build compiles all dependencies and takes a few minutes. On macOS each binary holds both Apple Silicon and
+Intel code. It ends with the six binaries:
 
 ```text
-12M bin/baseline-global-median
-12M bin/baseline-persistence
-12M bin/baseline-seasonal-median
-12M bin/baseline-seasonal-shift-persistence
+28M bin/baseline-configurable
+28M bin/baseline-global-median
+28M bin/baseline-persistence
+28M bin/baseline-seasonal-median
+28M bin/baseline-seasonal-shift-persistence
+28M bin/simple-multistep
 ```
 
 ## 4. Verify

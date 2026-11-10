@@ -24,7 +24,7 @@ Linux; on the same platform it is exact. They run with `make test`. When chap-co
 ## 2. The same output at scale
 
 `make bench-compare` generates larger datasets (100 x 120 to 5000 x 120 and 1000 x 1000 locations x months), runs
-chap-core's baselines and the Rust ports on the same data, and compares all samples of all forecast rows, bit for
+chap-core's baselines and the chapkit-rs ports on the same data, and compares all samples of all forecast rows, bit for
 bit: 2.2 million samples per model, all identical. A second check used weekly data built to provoke rounding
 differences: 200 locations x 300 weeks, with many zero counts (ties), missing values and locations whose last
 value is missing, 160,000 samples per model:

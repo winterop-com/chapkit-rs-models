@@ -352,7 +352,7 @@ checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 
 [[package]]
 name = "baseline-bench"
-version = "1.0.4"
+version = "1.1.0"
 dependencies = [
  "baseline-core",
  "baseline-global-median",
@@ -365,8 +365,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "baseline-configurable"
+version = "1.1.0"
+dependencies = [
+ "baseline-core",
+ "baseline-seasonal-shift-persistence",
+ "chapkit",
+ "criterion",
+ "schemars",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "baseline-core"
-version = "1.0.4"
+version = "1.1.0"
 dependencies = [
  "chapkit",
  "clap",
@@ -376,7 +390,7 @@ dependencies = [
 
 [[package]]
 name = "baseline-global-median"
-version = "1.0.4"
+version = "1.1.0"
 dependencies = [
  "axum",
  "baseline-core",
@@ -393,7 +407,7 @@ dependencies = [
 
 [[package]]
 name = "baseline-persistence"
-version = "1.0.4"
+version = "1.1.0"
 dependencies = [
  "baseline-core",
  "chapkit",
@@ -405,7 +419,7 @@ dependencies = [
 
 [[package]]
 name = "baseline-seasonal-median"
-version = "1.0.4"
+version = "1.1.0"
 dependencies = [
  "baseline-core",
  "baseline-global-median",
@@ -418,7 +432,7 @@ dependencies = [
 
 [[package]]
 name = "baseline-seasonal-shift-persistence"
-version = "1.0.4"
+version = "1.1.0"
 dependencies = [
  "baseline-core",
  "chapkit",
@@ -602,13 +616,14 @@ dependencies = [
 
 [[package]]
 name = "chapkit"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "axum",
  "chapkit-core",
  "chapkit-dataframe",
  "chapkit-eval",
  "chapkit-flow",
+ "chapkit-hpo",
  "chapkit-http",
  "chapkit-store",
  "chapkit-xai",
@@ -627,7 +642,7 @@ dependencies = [
 
 [[package]]
 name = "chapkit-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chapkit-dataframe",
  "rayon",
@@ -640,7 +655,7 @@ dependencies = [
 
 [[package]]
 name = "chapkit-dataframe"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "polars",
  "serde",
@@ -650,7 +665,7 @@ dependencies = [
 
 [[package]]
 name = "chapkit-eval"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chapkit-core",
  "rayon",
@@ -659,7 +674,7 @@ dependencies = [
 
 [[package]]
 name = "chapkit-flow"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chapkit-core",
  "clap",
@@ -669,8 +684,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "chapkit-hpo"
+version = "0.3.0"
+dependencies = [
+ "chapkit-core",
+ "chapkit-eval",
+ "rayon",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "chapkit-http"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "axum",
  "chrono",
@@ -693,7 +720,7 @@ dependencies = [
 
 [[package]]
 name = "chapkit-store"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "async-trait",
  "rusqlite",
@@ -706,7 +733,7 @@ dependencies = [
 
 [[package]]
 name = "chapkit-xai"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chapkit-core",
  "rayon",
@@ -3353,6 +3380,20 @@ name = "simdutf8"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
+
+[[package]]
+name = "simple-multistep"
+version = "1.1.0"
+dependencies = [
+ "baseline-core",
+ "chapkit",
+ "criterion",
+ "rayon",
+ "schemars",
+ "serde",
+ "serde_json",
+ "tokio",
+]
 
 [[package]]
 name = "simsimd"

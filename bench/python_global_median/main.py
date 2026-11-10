@@ -1,6 +1,6 @@
 """chap-core's global_median baseline served by Python chapkit, for benchmarking against chapkit-rs.
 
-Same logic as chap_core/models/builtin/global_median.py and the Rust port: per-location quantile
+Same logic as chap_core/models/builtin/global_median.py and the chapkit-rs port: per-location quantile
 samples of all observed disease_cases; unseen locations get the median per quantile level.
 
     ../../chapkit/.venv/bin/python -m uvicorn main:app --port 8101   (from this directory)

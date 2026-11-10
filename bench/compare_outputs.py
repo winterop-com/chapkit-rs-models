@@ -1,8 +1,8 @@
-"""Check that the Rust ports give chap-core's numbers on the benchmark data, not just on the fixtures.
+"""Check that the chapkit-rs ports give chap-core's numbers on the benchmark data, not just on the fixtures.
 
     python3 bench/compare_outputs.py      (from the chapkit-rs-models root; make bench-compare)
 
-Runs chap-core's built-in baselines (bench/scale_builtin.py) and the Rust ports (baseline-bench)
+Runs chap-core's built-in baselines (bench/scale_builtin.py) and the chapkit-rs ports (baseline-bench)
 on the same generated data, both writing every forecast, and compares all 100 samples of every
 forecast row. Prints the largest difference and the number of samples that are not bit-identical
 per model and size; fails if any sample is not bit-identical. CHAP_PY=<python> picks chap-core's

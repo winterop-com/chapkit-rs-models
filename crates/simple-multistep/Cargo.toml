@@ -1,0 +1,30 @@
+[package]
+name = "simple-multistep"
+description = "chap-models' chapkit_simple_multistep_model: a random forest on lag features, rolled forward one month at a time"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+chapkit.workspace = true
+rayon.workspace = true
+schemars = "1"
+serde.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+baseline-core.workspace = true
+criterion.workspace = true
+serde_json.workspace = true
+
+[[bench]]
+name = "model"
+harness = false
+
+[features]
+turso = ["chapkit/turso"]
+polars = ["chapkit/polars"]
+
+[lints]
+workspace = true

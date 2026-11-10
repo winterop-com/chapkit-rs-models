@@ -1,5 +1,5 @@
 #![allow(clippy::unwrap_used)]
-//! The Rust port must reproduce chap-core's `persistence` number for number, and survive a
+//! The chapkit-rs port must reproduce chap-core's `persistence` number for number, and survive a
 //! checkpoint round trip.
 
 use baseline_core::fixture::{Match, check_parity, checkpoint_round_trip};

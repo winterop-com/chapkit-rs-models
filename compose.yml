@@ -91,8 +91,46 @@ services:
     volumes:
       - persistence-data:/work/data
 
+  configurable-baseline:
+    <<: *model
+    build:
+      context: ..
+      dockerfile: chapkit-rs/docker/Dockerfile
+      args:
+        WORKSPACE: chapkit-rs-models
+        BIN: baseline-configurable
+        GIT_REVISION: ${GIT_REVISION:-}
+    image: chapkit-rs-models/baseline-configurable
+    ports:
+      - "8005:8000"
+    environment:
+      <<: *environment
+      SERVICEKIT_HOST: configurable-baseline
+    volumes:
+      - configurable-baseline-data:/work/data
+
+  simple-multistep:
+    <<: *model
+    build:
+      context: ..
+      dockerfile: chapkit-rs/docker/Dockerfile
+      args:
+        WORKSPACE: chapkit-rs-models
+        BIN: simple-multistep
+        GIT_REVISION: ${GIT_REVISION:-}
+    image: chapkit-rs-models/simple-multistep
+    ports:
+      - "8006:8000"
+    environment:
+      <<: *environment
+      SERVICEKIT_HOST: simple-multistep
+    volumes:
+      - simple-multistep-data:/work/data
+
 volumes:
   global-median-data:
   seasonal-median-data:
   seasonal-shift-persistence-data:
   persistence-data:
+  configurable-baseline-data:
+  simple-multistep-data:

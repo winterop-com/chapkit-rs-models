@@ -25,6 +25,8 @@ with no tables, threads or HTTP (for example `crates/baseline-seasonal-shift-per
 | `crates/baseline-seasonal-median` | chap-core's `seasonal_median`: each period forecast from the same month or week in earlier years. |
 | `crates/baseline-seasonal-shift-persistence` | chap-core's `seasonal_shift_persistence`: the last value, scaled by how cases changed over the same horizon and season before. |
 | `crates/baseline-persistence` | chap-core's `persistence` (version 2): the last value, with a spread from how cases changed over the same horizon before. |
+| `crates/baseline-configurable` | chap-models' `configurable_baseline_model`: seasonal shift persistence with a configurable spread and bias in log space, a yardstick for metrics. |
+| `crates/simple-multistep` | chap-models' `chapkit_simple_multistep_model`, the marketplace's reference model: a random forest on per-location lag features with a normal spread, rolled forward one month at a time. Checked against the original's features exactly and its backtest scores within seed-to-seed noise. |
 | `crates/baseline-core` | Shared by the baselines: the quantile step, chap-core's outputs for the parity tests, the demo runner, synthetic data. |
 | `crates/baseline-bench` | Times the baselines at any data size, for `make bench-scale`. |
 
@@ -46,7 +48,8 @@ cargo build --features polars    # DataFrame::to_polars / from_polars for pandas
 
 Published for linux/amd64 and linux/arm64:
 `ghcr.io/winterop-com/chapkit-rs-models/baseline-global-median`, `.../baseline-seasonal-median`,
-`.../baseline-seasonal-shift-persistence` and `.../baseline-persistence` (tags `<version>`, `latest`,
+`.../baseline-seasonal-shift-persistence`, `.../baseline-persistence`, `.../baseline-configurable` and
+`.../simple-multistep` (tags `<version>`, `latest`,
 `sha-<commit>`). `make docker-up` builds and runs them locally with `compose.yml`.
 
 An image is published once per version, the workspace `version` in `Cargo.toml`. chap-core treats a model
@@ -57,9 +60,11 @@ warns when there is nothing new to publish).
 ## Running a service
 
 Every binary serves the full chapkit API plus the chapkit-rs extensions `$predict-sync` (a forecast returned
-directly, no job) and `$explain` (LIME or KernelSHAP for one forecast cell, in-process). Besides `serve`, each
-binary has `test` (chap-core's flow against a running service), `eval` (chap-core's backtest and metrics,
-in-process, no server) and `demo`. The main environment variables:
+directly, no job), `$explain` (LIME or KernelSHAP for one forecast cell, in-process), `$backtest` (a backtest
+job, stored as an artifact) and `$hpo` (a hyperparameter search job). Besides `serve`, each binary has `test`
+(chap-core's flow against a running service), `eval` (chap-core's backtest and metrics, in-process, no server;
+`--json` for every score at full precision, `--config` for model options), `hpo` (random or grid search over
+the model's search space, each trial a backtest) and `demo`. The main environment variables:
 
 | variable | default | |
 |---|---|---|

@@ -13,10 +13,18 @@ chapkit HTTP API, so chap-core registers and runs it like any other chapkit mode
 | `baseline-seasonal-median` | [Seasonal median](models/seasonal-median.md) | a future month gets the same month in earlier years |
 | `baseline-seasonal-shift-persistence` | [Seasonal shift persistence](models/seasonal-shift-persistence.md) | the last value, scaled by how cases changed at that time of year before |
 | `baseline-persistence` | [Persistence](models/persistence.md) | the last value, with a spread from how cases changed over the same distance before |
+| `baseline-configurable` | [Configurable baseline](models/configurable-baseline.md) | seasonal shift persistence, made too high, too low, too narrow or too wide by a known amount (chap-models' `configurable_baseline_model`) |
+| `simple-multistep` | [Simple multistep](models/simple-multistep.md) | a random forest predicts next month from the last months and the location; sampled predictions are fed back for the months after (chap-models' `chapkit_simple_multistep_model`) |
 
-The four are ports of chap-core's built-in **baselines** (`chap_core/models/builtin`). Baselines are the
+The first four are ports of chap-core's built-in **baselines** (`chap_core/models/builtin`); the configurable
+baseline is a port of a Chap model built on one of them, for testing evaluation metrics. Baselines are the
 yardstick for real models: a model that cannot beat "the same month last years" is not adding anything. They
 make no assumptions beyond the data and fit nothing, which also makes them good for checking a setup end to end.
+
+Simple multistep is a forecasting model proper, the Chap marketplace's reference model. It fits a random
+forest and draws random numbers, so it cannot match its original sample for sample: its features are checked
+against the original's exactly, and its forecasts by backtest scores, which agree within the spread between
+two runs of either model ([details](models/simple-multistep.md#how-it-is-checked)).
 
 **Same numbers as chap-core.** Each port is checked against chap-core's own output, sample by sample, both on
 chap-core's test data and at scale up to millions of forecast samples ([details](verification.md)).

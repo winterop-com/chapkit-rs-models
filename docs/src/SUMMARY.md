@@ -20,6 +20,8 @@
 - [Seasonal median](models/seasonal-median.md)
 - [Seasonal shift persistence](models/seasonal-shift-persistence.md)
 - [Persistence](models/persistence.md)
+- [Configurable baseline](models/configurable-baseline.md)
+- [Simple multistep](models/simple-multistep.md)
 
 # Trusting the results
 

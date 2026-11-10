@@ -29,7 +29,7 @@ pub fn info(note: &str, page: &str) -> ModelInfo {
         model_metadata: ModelMetadata {
             author: Some("Morten Hansen".into()),
             author_note: Some(format!(
-                "Rust port (chapkit-rs) of chap-core's built-in baseline. {note}"
+                "chapkit-rs port of chap-core's built-in baseline. {note}"
             )),
             author_assessed_status: Some(AssessedStatus::Red),
             contact_email: Some("morten@winterop.com".into()),
@@ -71,12 +71,25 @@ pub async fn run<M: Model + Clone>(
     model: M,
     config: M::Config,
 ) -> std::process::ExitCode {
+    let description = format!(
+        "chapkit-rs port of chap-core's {} baseline",
+        id.replace('-', "_")
+    );
+    run_described(id, version, title, &description, model, config).await
+}
+
+/// [`run`] with the service description given, for models that are not chap-core built-ins.
+pub async fn run_described<M: Model + Clone>(
+    id: &str,
+    version: &str,
+    title: &str,
+    description: &str,
+    model: M,
+    config: M::Config,
+) -> std::process::ExitCode {
     let service = chapkit::Service::new(id, title, model.clone())
         .version(version)
-        .description(format!(
-            "Rust port of chap-core's {} baseline",
-            id.replace('-', "_")
-        ));
+        .description(description);
     let cli: Cli = service.parse_args();
     let result = match cli.command {
         Command::Demo => fixture::demo(id, &model, &config),

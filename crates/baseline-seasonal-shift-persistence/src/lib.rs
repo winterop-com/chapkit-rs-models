@@ -8,7 +8,7 @@ pub mod model;
 use std::collections::BTreeMap;
 
 use baseline_core::N_SAMPLES;
-use chapkit::locations::{predict_by_location, series_by_location};
+use chapkit::locations::{FutureRow, predict_by_location, series_by_location};
 use chapkit::{DataFrame, Error, Model, ModelInfo, NoConfig, PredictInput, Result, TrainInput};
 use rayon::prelude::*;
 
@@ -59,24 +59,32 @@ impl Model for SeasonalShiftPersistence {
     ) -> Result<DataFrame> {
         let historic = series_by_location(input.historic, &self.info().target)?;
         predict_by_location(input.future, N_SAMPLES, |loc, rows| {
-            let cases = historic
-                .get(loc)
-                .map(|s| s.values.as_slice())
-                .unwrap_or_default();
-            let (last_value, since_last) = model::last_observed(cases).ok_or_else(|| {
-                Error::invalid(format!(
-                    "no observed disease_cases for location '{loc}' in the historic data"
-                ))
-            })?;
-            // The k-th future period is `since_last + k` periods after the last observed value.
-            rows.iter()
-                .enumerate()
-                .map(|(k, (_, period))| {
-                    let ratios = trained.ratios(loc, period.period_of_year(), since_last + k);
-                    model::forecast(last_value, &ratios)
-                        .ok_or_else(|| Error::model("no ratios to forecast with"))
-                })
-                .collect()
+            let cases = historic.get(loc).map(|s| s.values.as_slice());
+            forecast_location(trained, loc, cases.unwrap_or_default(), rows)
         })
     }
+}
+
+/// One location's forecast: samples for each of its future `rows` (sorted by period), from its
+/// historic `cases` in time order. Also used by models built on this one (`baseline-configurable`).
+pub fn forecast_location(
+    trained: &SeasonalShiftTrained,
+    loc: &str,
+    cases: &[f64],
+    rows: &[FutureRow],
+) -> Result<Vec<Vec<f64>>> {
+    let (last_value, since_last) = model::last_observed(cases).ok_or_else(|| {
+        Error::invalid(format!(
+            "no observed disease_cases for location '{loc}' in the historic data"
+        ))
+    })?;
+    // The k-th future period is `since_last + k` periods after the last observed value.
+    rows.iter()
+        .enumerate()
+        .map(|(k, (_, period))| {
+            let ratios = trained.ratios(loc, period.period_of_year(), since_last + k);
+            model::forecast(last_value, &ratios)
+                .ok_or_else(|| Error::model("no ratios to forecast with"))
+        })
+        .collect()
 }

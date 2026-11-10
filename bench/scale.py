@@ -1,10 +1,10 @@
-"""How chap-core's built-in baselines and the Rust ports scale with locations and periods.
+"""How chap-core's built-in baselines and the chapkit-rs ports scale with locations and periods.
 
     python3 bench/scale.py                     (from the chapkit-rs-models root; make bench-scale)
     python3 bench/scale.py 50000x120 100000x120   (only these sizes, merged into the results file)
 
 Each size runs in its own process (bench/scale_builtin.py with chap-core's environment,
-the baseline-bench binary in release mode) so peak memory is per run. The Rust models run
+the baseline-bench binary in release mode) so peak memory is per run. The chapkit-rs ports run
 on one core (RAYON_NUM_THREADS=1, like chap-core) and on all cores, then once more to time
 decoding the data from JSON. CPU time is measured inside each process around train and predict. Writes
 bench/scale_results.json and prints a table.
