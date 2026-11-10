@@ -33,6 +33,7 @@ environment variables:
 | `HOST`, `PORT` | 127.0.0.1, 8000 | listen address |
 | `DATABASE_URL` | in memory | set a file (`data/chapkit.db`, or `turso:///data/chapkit.db` with `FEATURES=turso`) for anything beyond a test: in memory, every stored prediction stays in RAM and a restart loses it |
 | `SERVICEKIT_ORCHESTRATOR_URL` | unset | register with chap-core, e.g. `http://localhost:8700/v2/services/$register`; also set `SERVICEKIT_HOST`/`SERVICEKIT_PORT` to the address chap-core calls back on and `GIT_REVISION` |
+| `CHAPKIT_MAX_BODY_MB` | 1024 | largest accepted request body (chap-core sends whole datasets as JSON) |
 | `CHAPKIT_EAGER_WAIT_MS` | 1000 | hold a job submission until a fast job finishes, so chap-core's first poll sees it done |
 
 The full list and the design behind it are in the chapkit-rs book (`make docs` in `../chapkit-rs`).
