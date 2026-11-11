@@ -7,7 +7,7 @@ From the repository root, with `chapkit-rs` checked out next to it (`chap-worksp
 ```sh
 make release        # all binaries into ./bin
 ls bin              # baseline-configurable  baseline-global-median  baseline-persistence  baseline-seasonal-median
-                   # baseline-seasonal-shift-persistence  simple-multistep
+                   # baseline-seasonal-shift-persistence  simple-multistep  auto-arima
 ```
 
 ## Serve

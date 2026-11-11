@@ -42,15 +42,16 @@ make release
 ```
 
 The first build compiles all dependencies and takes a few minutes. On macOS each binary holds both Apple Silicon and
-Intel code. It ends with the six binaries:
+Intel code. It ends with the seven binaries, each with the web UI built in:
 
 ```text
-28M bin/baseline-configurable
-28M bin/baseline-global-median
-28M bin/baseline-persistence
-28M bin/baseline-seasonal-median
-28M bin/baseline-seasonal-shift-persistence
-28M bin/simple-multistep
+36M bin/auto-arima
+36M bin/baseline-configurable
+36M bin/baseline-global-median
+36M bin/baseline-persistence
+36M bin/baseline-seasonal-median
+36M bin/baseline-seasonal-shift-persistence
+36M bin/simple-multistep
 ```
 
 ## 4. Verify

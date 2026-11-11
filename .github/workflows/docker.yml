@@ -56,7 +56,7 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "bins=$(printf '%s\n' "${bins[@]}" | jq -Rnc '[inputs | select(length > 0)]')" >> "$GITHUB_OUTPUT"
         env:
-          BINS: baseline-global-median baseline-seasonal-median baseline-seasonal-shift-persistence baseline-persistence baseline-configurable simple-multistep
+          BINS: baseline-global-median baseline-seasonal-median baseline-seasonal-shift-persistence baseline-persistence baseline-configurable simple-multistep auto-arima
 
   build:
     name: ${{ matrix.bin }} (${{ matrix.platform }})

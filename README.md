@@ -27,6 +27,7 @@ with no tables, threads or HTTP (for example `crates/baseline-seasonal-shift-per
 | `crates/baseline-persistence` | chap-core's `persistence` (version 2): the last value, with a spread from how cases changed over the same horizon before. |
 | `crates/baseline-configurable` | chap-models' `configurable_baseline_model`: seasonal shift persistence with a configurable spread and bias in log space, a yardstick for metrics. |
 | `crates/simple-multistep` | chap-models' `chapkit_simple_multistep_model`, the marketplace's reference model: a random forest on per-location lag features with a normal spread, rolled forward one month at a time. Checked against the original's features exactly and its backtest scores within seed-to-seed noise. |
+| `crates/auto-arima` | chap-models' `auto_arima_chapkit` (R, fable): per location an automatic ARIMA (orders chosen as `fable::ARIMA()` chooses them, through chapkit-rs's `chapkit::ts`), refitted on the history, normal samples; monthly and weekly. Checked against fable's orders and forecasts (`tests/fable.rs`) and the original's backtest scores. |
 | `crates/baseline-core` | Shared by the baselines: the quantile step, chap-core's outputs for the parity tests, the demo runner, synthetic data. |
 | `crates/baseline-bench` | Times the baselines at any data size, for `make bench-scale`. |
 
@@ -48,8 +49,8 @@ cargo build --features polars    # DataFrame::to_polars / from_polars for pandas
 
 Published for linux/amd64 and linux/arm64:
 `ghcr.io/winterop-com/chapkit-rs-models/baseline-global-median`, `.../baseline-seasonal-median`,
-`.../baseline-seasonal-shift-persistence`, `.../baseline-persistence`, `.../baseline-configurable` and
-`.../simple-multistep` (tags `<version>`, `latest`,
+`.../baseline-seasonal-shift-persistence`, `.../baseline-persistence`, `.../baseline-configurable`,
+`.../simple-multistep` and `.../auto-arima` (tags `<version>`, `latest`,
 `sha-<commit>`). `make docker-up` builds and runs them locally with `compose.yml`.
 
 An image is published once per version, the workspace `version` in `Cargo.toml`. chap-core treats a model

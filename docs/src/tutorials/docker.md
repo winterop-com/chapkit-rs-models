@@ -38,7 +38,7 @@ chap-devops ps
 chapkit-rs test --url http://localhost:5001      # the URL chap-devops printed
 ```
 
-## 2. Or build and run all six with compose
+## 2. Or build and run all seven with compose
 
 ```sh
 cd chapkit-rs-models
@@ -53,9 +53,9 @@ docker compose ps --format 'table {{.Service}}\t{{.Status}}\t{{.Ports}}'
 
 lists the services, each `Up` and `(healthy)` once its health check passes: `global-median` on port 8001,
 `seasonal-median` 8002, `seasonal-shift-persistence` 8003, `persistence` 8004, `configurable-baseline` 8005 and
-`simple-multistep` 8006.
+`simple-multistep` 8006 and `auto-arima` 8007.
 
-They run on ports 8001 to 8006, each with its own volume, a read-only filesystem and a health check. The images are
+They run on ports 8001 to 8007, each with its own volume, a read-only filesystem and a health check. The images are
 built with chapkit-rs's shared Dockerfile (see the chapkit-rs book, *Docker*). `make docker-down` stops them;
 the data stays in the volumes.
 

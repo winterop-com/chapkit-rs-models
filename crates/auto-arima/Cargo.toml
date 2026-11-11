@@ -1,0 +1,29 @@
+[package]
+name = "auto-arima"
+description = "chap-models' auto_arima_chapkit: fable's automatic ARIMA per location, refitted on the history and sampled from its normal forecast"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+chapkit.workspace = true
+rayon.workspace = true
+schemars = "1"
+serde.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+serde_json.workspace = true
+
+[[bench]]
+name = "model"
+harness = false
+
+[features]
+turso = ["chapkit/turso"]
+polars = ["chapkit/polars"]
+
+[lints]
+workspace = true

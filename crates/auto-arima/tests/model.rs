@@ -1,0 +1,184 @@
+#![allow(clippy::unwrap_used)]
+//! Train and predict end to end through chapkit, the checkpoint round trip, and the samples
+//! against the original's forecast distribution.
+
+use auto_arima::{AutoArima, Config};
+use chapkit::{DataFrame, Model, PredictInput, RunInfo, TrainInput};
+use serde_json::{Value, json};
+
+fn fixture(name: &str) -> Value {
+    let path = format!("{}/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
+    serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
+}
+
+/// The fixture's series as a chapkit table: the first `n` periods of each location as history,
+/// and the `h` after them as the future (without cases).
+fn frames(f: &Value, n: usize, h: usize) -> (DataFrame, DataFrame) {
+    let (mut historic, mut future) = (Vec::new(), Vec::new());
+    for (location, loc) in f.as_object().unwrap() {
+        let periods = loc["periods"].as_array().unwrap();
+        let values = loc["values"].as_array().unwrap();
+        for i in 0..n {
+            historic.push(json!([periods[i], location, values[i]]));
+        }
+        for p in &periods[n..n + h] {
+            future.push(json!([p, location]));
+        }
+    }
+    let frame = |columns: Value, data: Vec<Value>| {
+        serde_json::from_value(json!({"columns": columns, "data": data})).unwrap()
+    };
+    (
+        frame(
+            json!(["time_period", "location", "disease_cases"]),
+            historic,
+        ),
+        frame(json!(["time_period", "location"]), future),
+    )
+}
+
+fn seeded(seed: u64) -> Config {
+    Config {
+        seed: Some(seed),
+        ..Config::default()
+    }
+}
+
+#[test]
+fn trains_predicts_and_round_trips() {
+    let f = fixture("fable_monthly.json");
+    let (historic, future) = frames(&f, 27, 3);
+    let run = RunInfo::with_periods(3);
+    let model = AutoArima;
+    let config = seeded(7);
+    let trained = model
+        .train(&config, TrainInput::new(&historic, &run, None))
+        .unwrap();
+    assert_eq!(trained.season, 12);
+    assert_eq!(trained.locations.len(), 3);
+    let predict = |t: &auto_arima::Trained| {
+        model
+            .predict(
+                t,
+                &config,
+                PredictInput::new(&historic, &future, &run, None),
+            )
+            .unwrap()
+    };
+    let out = predict(&trained);
+    assert_eq!(out.n_rows(), 9);
+    assert!(out.has("sample_99") && !out.has("sample_100"));
+
+    // The checkpoint gives the same model and so the same samples.
+    let checkpoint = model.save(&trained).unwrap();
+    let bytes = checkpoint.to_bytes().unwrap();
+    let loaded = model
+        .load(&chapkit::Checkpoint::from_bytes(&bytes).unwrap())
+        .unwrap();
+    assert_eq!(loaded, trained);
+    assert_eq!(predict(&loaded), out);
+}
+
+/// The 100 samples of each forecast period are draws from the original's normal distribution:
+/// fable's mean and sd after `refit()` on the history (the fixture's backtest at 27 periods).
+#[test]
+fn samples_follow_the_original_forecast() {
+    let f = fixture("fable_monthly.json");
+    let (historic, future) = frames(&f, 27, 3);
+    let run = RunInfo::with_periods(3);
+    let config = Config {
+        n_samples: 20_000,
+        seed: Some(1),
+    };
+    let model = AutoArima;
+    let trained = model
+        .train(&config, TrainInput::new(&historic, &run, None))
+        .unwrap();
+    let out = model
+        .predict(
+            &trained,
+            &config,
+            PredictInput::new(&historic, &future, &run, None),
+        )
+        .unwrap();
+    let columns: Vec<_> = (0..config.n_samples)
+        .map(|i| out.column(&format!("sample_{i}")).unwrap())
+        .collect();
+    let locations = out.column("location").unwrap();
+    let periods = out.column("time_period").unwrap();
+    for row in 0..out.n_rows() {
+        let location = locations.str_at(row).unwrap();
+        let period = periods.str_at(row).unwrap();
+        let all = f[location]["periods"].as_array().unwrap();
+        let step = all.iter().position(|x| x.as_str() == Some(period)).unwrap() - 27;
+        let expected = &f[location]["backtest"][0]["forecast"];
+        let (mean, sd) = (
+            expected["mean"][step].as_f64().unwrap(),
+            expected["sd"][step].as_f64().unwrap(),
+        );
+        let draws: Vec<f64> = columns.iter().map(|c| c.f64_at(row).unwrap()).collect();
+        let n = draws.len() as f64;
+        let m = draws.iter().sum::<f64>() / n;
+        let var = draws.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (n - 1.0);
+        // Within 4 standard errors of the mean, and the sd within 3%.
+        assert!(
+            (m - mean).abs() < 4.0 * sd / n.sqrt(),
+            "{location} {step}: {m} vs {mean}"
+        );
+        assert!((var.sqrt() / sd - 1.0).abs() < 0.03, "{location} {step}");
+    }
+}
+
+#[test]
+fn weekly_data_uses_a_52_week_season() {
+    let f = fixture("fable_weekly.json");
+    let (historic, future) = frames(&f, 120, 2);
+    let run = RunInfo::with_periods(2);
+    let model = AutoArima;
+    let trained = model
+        .train(&seeded(3), TrainInput::new(&historic, &run, None))
+        .unwrap();
+    assert_eq!(trained.season, 52);
+    let out = model
+        .predict(
+            &trained,
+            &seeded(3),
+            PredictInput::new(&historic, &future, &run, None),
+        )
+        .unwrap();
+    assert_eq!(out.n_rows(), 8);
+}
+
+#[test]
+fn rejects_an_unknown_location_and_no_samples() {
+    let f = fixture("fable_monthly.json");
+    let (historic, _) = frames(&f, 27, 3);
+    let run = RunInfo::with_periods(3);
+    let model = AutoArima;
+    let trained = model
+        .train(&seeded(1), TrainInput::new(&historic, &run, None))
+        .unwrap();
+    let future: DataFrame = serde_json::from_value(json!({
+        "columns": ["time_period", "location"],
+        "data": [["2012-04", "Nowhere"]]
+    }))
+    .unwrap();
+    assert!(
+        model
+            .predict(
+                &trained,
+                &seeded(1),
+                PredictInput::new(&historic, &future, &run, None)
+            )
+            .is_err()
+    );
+    let none = Config {
+        n_samples: 0,
+        seed: None,
+    };
+    assert!(
+        model
+            .train(&none, TrainInput::new(&historic, &run, None))
+            .is_err()
+    );
+}

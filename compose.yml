@@ -127,6 +127,24 @@ services:
     volumes:
       - simple-multistep-data:/work/data
 
+  auto-arima:
+    <<: *model
+    build:
+      context: ..
+      dockerfile: chapkit-rs/docker/Dockerfile
+      args:
+        WORKSPACE: chapkit-rs-models
+        BIN: auto-arima
+        GIT_REVISION: ${GIT_REVISION:-}
+    image: chapkit-rs-models/auto-arima
+    ports:
+      - "8007:8000"
+    environment:
+      <<: *environment
+      SERVICEKIT_HOST: auto-arima
+    volumes:
+      - auto-arima-data:/work/data
+
 volumes:
   global-median-data:
   seasonal-median-data:
@@ -134,3 +152,4 @@ volumes:
   persistence-data:
   configurable-baseline-data:
   simple-multistep-data:
+  auto-arima-data:

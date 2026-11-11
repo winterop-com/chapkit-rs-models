@@ -1,6 +1,6 @@
 .PHONY: help check build release lint fmt test bench bench-http bench-scale bench-compare demo fixtures docs docs-serve docs-figures docker-build docker-up docker-down clean
 
-BINS := baseline-global-median baseline-seasonal-median baseline-seasonal-shift-persistence baseline-persistence baseline-configurable simple-multistep
+BINS := baseline-global-median baseline-seasonal-median baseline-seasonal-shift-persistence baseline-persistence baseline-configurable simple-multistep auto-arima
 CHAP_CORE ?= ../../chap-core
 # FEATURES=turso builds the binaries with the turso store backend.
 FEATURES ?=
@@ -25,7 +25,7 @@ help:
 	@echo "  docs-serve  Serve the book with live reload"
 	@echo "  docs-figures  Redraw the book's figures from the models' output (after make release)"
 	@echo "  docker-build  Build an image per model (chapkit-rs's shared Dockerfile; ../chapkit-rs needed)"
-	@echo "  docker-up     Build and start all models with docker compose (ports 8001-8006)"
+	@echo "  docker-up     Build and start all models with docker compose (ports 8001-8007)"
 	@echo "  docker-down   Stop them"
 	@echo "  clean     Remove build output"
 

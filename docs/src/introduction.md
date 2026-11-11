@@ -15,6 +15,7 @@ chapkit HTTP API, so chap-core registers and runs it like any other chapkit mode
 | `baseline-persistence` | [Persistence](models/persistence.md) | the last value, with a spread from how cases changed over the same distance before |
 | `baseline-configurable` | [Configurable baseline](models/configurable-baseline.md) | seasonal shift persistence, made too high, too low, too narrow or too wide by a known amount (chap-models' `configurable_baseline_model`) |
 | `simple-multistep` | [Simple multistep](models/simple-multistep.md) | a random forest predicts next month from the last months and the location; sampled predictions are fed back for the months after (chap-models' `chapkit_simple_multistep_model`) |
+| `auto-arima` | [Auto ARIMA](models/auto-arima.md) | per location, an ARIMA of the case counts with its orders chosen as R's fable chooses them, refitted on the latest history; monthly and weekly (chap-models' `auto_arima_chapkit`) |
 
 The first four are ports of chap-core's built-in **baselines** (`chap_core/models/builtin`); the configurable
 baseline is a port of a Chap model built on one of them, for testing evaluation metrics. Baselines are the
@@ -25,6 +26,12 @@ Simple multistep is a forecasting model proper, the Chap marketplace's reference
 forest and draws random numbers, so it cannot match its original sample for sample: its features are checked
 against the original's exactly, and its forecasts by backtest scores, which agree within the spread between
 two runs of either model ([details](models/simple-multistep.md#how-it-is-checked)).
+
+Auto ARIMA is the Chap marketplace's `auto_arima_chapkit`, an R model built on fable. The ARIMA itself, R's
+`stats::arima` and fable's automatic order search, is ported in chapkit-rs (`chapkit::ts`): on the Laos and
+Nicaragua data the port chooses fable's orders in all 29 fits and its forecast means and sds agree to 1e-5 or
+better, but for one weekly model where R's own initial covariance is inaccurate. Unlike the original, it also
+takes weekly data ([details](models/auto-arima.md#how-it-is-checked)).
 
 **Same numbers as chap-core.** Each port is checked against chap-core's own output, sample by sample, both on
 chap-core's test data and at scale up to millions of forecast samples ([details](verification.md)).

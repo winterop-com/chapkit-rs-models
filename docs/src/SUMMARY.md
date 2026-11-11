@@ -22,6 +22,7 @@
 - [Persistence](models/persistence.md)
 - [Configurable baseline](models/configurable-baseline.md)
 - [Simple multistep](models/simple-multistep.md)
+- [Auto ARIMA](models/auto-arima.md)
 
 # Trusting the results
 
