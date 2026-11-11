@@ -227,3 +227,89 @@ fn bounds_the_samples() {
     assert_eq!(model.validate_predict(&most, predict).len(), 1);
     assert_eq!(model.validate_predict(&seeded(1), predict).len(), 0);
 }
+
+/// The weekly fixture with one more historic row for `boaco` at `period`.
+fn weekly_with(period: &str) -> (auto_arima::Trained, DataFrame, DataFrame) {
+    let f = fixture("fable_weekly.json");
+    let (historic, future) = frames(&f, 120, 2);
+    let run = RunInfo::with_periods(2);
+    let trained = AutoArima
+        .train(&seeded(3), TrainInput::new(&historic, &run, None))
+        .unwrap();
+    let mut rows: Value = serde_json::to_value(&historic).unwrap();
+    rows["data"]
+        .as_array_mut()
+        .unwrap()
+        .insert(0, json!([period, "boaco", 1.0]));
+    (trained, serde_json::from_value(rows).unwrap(), future)
+}
+
+/// A gap-free grid is bounded before it is filled: a history whose periods lie far apart (here
+/// 2,017 years of weeks, over 100,000) is refused, not expanded.
+#[test]
+fn far_apart_history_is_refused() {
+    let run = RunInfo::with_periods(2);
+    let (trained, historic, future) = weekly_with("0001W01");
+    let err = AutoArima
+        .predict(
+            &trained,
+            &seeded(3),
+            PredictInput::new(&historic, &future, &run, None),
+        )
+        .unwrap_err();
+    assert!(err.to_string().contains("100000 periods"), "{err}");
+    // The same in training.
+    let err = AutoArima
+        .train(&seeded(3), TrainInput::new(&historic, &run, None))
+        .unwrap_err();
+    assert!(err.to_string().contains("100000 periods"), "{err}");
+    // A century of weeks before the data is still taken.
+    let (trained, historic, future) = weekly_with("1916W01");
+    let out = AutoArima
+        .predict(
+            &trained,
+            &seeded(3),
+            PredictInput::new(&historic, &future, &run, None),
+        )
+        .unwrap();
+    assert_eq!(out.n_rows(), 8);
+}
+
+/// A history of another resolution than the training data is refused before any filling (a month
+/// sorts before every week, so filling months up to a week would never end).
+#[test]
+fn history_of_another_resolution_is_refused() {
+    let run = RunInfo::with_periods(2);
+    // A month in the weekly history.
+    let (trained, historic, future) = weekly_with("2015-01");
+    let err = AutoArima
+        .predict(
+            &trained,
+            &seeded(3),
+            PredictInput::new(&historic, &future, &run, None),
+        )
+        .unwrap_err();
+    assert!(err.to_string().contains("weekly"), "{err}");
+    // A week in a monthly history.
+    let f = fixture("fable_monthly.json");
+    let (historic, future) = frames(&f, 27, 3);
+    let run = RunInfo::with_periods(3);
+    let trained = AutoArima
+        .train(&seeded(1), TrainInput::new(&historic, &run, None))
+        .unwrap();
+    let mut rows: Value = serde_json::to_value(&historic).unwrap();
+    let location = rows["data"][0][1].clone();
+    rows["data"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!(["2024W02", location, 2.0]));
+    let historic: DataFrame = serde_json::from_value(rows).unwrap();
+    let err = AutoArima
+        .predict(
+            &trained,
+            &seeded(1),
+            PredictInput::new(&historic, &future, &run, None),
+        )
+        .unwrap_err();
+    assert!(err.to_string().contains("monthly"), "{err}");
+}

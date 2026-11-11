@@ -193,6 +193,13 @@ pub fn sqrt_features(n_features: usize) -> usize {
     ((n_features as f64).sqrt().floor() as usize).max(1)
 }
 
+/// Whether a node of `rows` rows is too small to split into two leaves of `min_samples_leaf`:
+/// `rows < 2 * min_samples_leaf`, without the multiplication (which overflows for a leaf size
+/// over `usize::MAX / 2`, which the configuration accepts).
+fn too_few_to_split(rows: usize, min_samples_leaf: usize) -> bool {
+    rows / 2 < min_samples_leaf
+}
+
 /// A uniform integer in `[0, n)` (`n > 0`).
 fn below(rng: &mut Rng, n: usize) -> usize {
     (rng.next_u64() % n as u64) as usize
@@ -253,7 +260,7 @@ fn grow_tree(x: &Columns, y: &[f64], params: ForestParams, rng: &mut Rng) -> Tre
         }
         let leaf = depth >= params.max_depth
             || rows.len() < 2
-            || rows.len() < 2 * params.min_samples_leaf
+            || too_few_to_split(rows.len(), params.min_samples_leaf)
             || impurity <= f64::EPSILON;
         if leaf {
             continue;
@@ -434,6 +441,37 @@ mod tests {
         // A leaf of 100 bootstrap rows holds at least 30 distinct rows, so at most 3 leaves.
         let leaves = tree.nodes.iter().filter(|n| n.split.is_none()).count();
         assert!(leaves <= 3, "{leaves} leaves");
+    }
+
+    #[test]
+    fn a_huge_min_samples_leaf_gives_a_single_leaf() {
+        // `2 * min_samples_leaf` would overflow: the leaf rule compares without multiplying.
+        let rows: Vec<Vec<f64>> = (0..10).map(|i| vec![f64::from(i)]).collect();
+        let y: Vec<f64> = (0..10).map(f64::from).collect();
+        for leaf in [usize::MAX / 2 + 1, usize::MAX] {
+            let forest = Forest::fit(&Columns::from_rows(&rows), &y, params(3, 10, leaf), 1);
+            assert!(forest.trees.iter().all(|t| t.nodes.len() == 1), "{leaf}");
+        }
+    }
+
+    #[test]
+    fn too_few_rows_to_split_is_fewer_than_twice_the_leaf() {
+        for rows in 0..50usize {
+            for leaf in 0..30usize {
+                assert_eq!(
+                    too_few_to_split(rows, leaf),
+                    rows < 2 * leaf,
+                    "{rows} {leaf}"
+                );
+            }
+        }
+        // Where `2 * leaf` overflows.
+        for leaf in [usize::MAX / 2, usize::MAX / 2 + 1, usize::MAX] {
+            for rows in [0, 1, usize::MAX - 1, usize::MAX] {
+                let twice = 2 * leaf as u128;
+                assert_eq!(too_few_to_split(rows, leaf), (rows as u128) < twice);
+            }
+        }
     }
 
     #[test]

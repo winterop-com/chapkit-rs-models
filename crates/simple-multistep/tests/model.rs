@@ -253,3 +253,94 @@ fn bounds_the_samples_and_the_forest() {
     assert!(model.predict(&trained, &huge, predict).is_err());
     assert_eq!(model.validate_predict(&seeded(1), predict).len(), 0);
 }
+
+/// One location's `n` months of cases from 1900-01, and the month after as the future.
+fn long_series(n: usize) -> (DataFrame, DataFrame) {
+    let month = |i: usize| format!("{}-{:02}", 1900 + i / 12, i % 12 + 1);
+    let historic = (0..n)
+        .map(|i| json!([month(i), "A", (i % 12) as f64 + i as f64 / 100.0]))
+        .collect::<Vec<_>>();
+    let frame = |columns: Value, data: Vec<Value>| {
+        serde_json::from_value(json!({"columns": columns, "data": data})).unwrap()
+    };
+    (
+        frame(
+            json!(["time_period", "location", "disease_cases"]),
+            historic,
+        ),
+        frame(
+            json!(["time_period", "location"]),
+            vec![json!([month(n), "A"])],
+        ),
+    )
+}
+
+/// The trajectories a forecast keeps are bounded before forecasting: `n_target_lags` is at most
+/// 1,200 (a century of months), and `n_samples` times the trained model's `n_target_lags` at
+/// most 10 million values per location.
+#[test]
+fn bounds_the_lags_and_the_trajectories() {
+    for n in [0, 1_201, 1_000_000_000] {
+        assert!(
+            serde_json::from_value::<Config>(json!({"n_target_lags": n})).is_err(),
+            "{n}"
+        );
+    }
+    let most: Config = serde_json::from_value(json!({"n_target_lags": 1_200})).unwrap();
+    assert_eq!(most.n_target_lags, 1_200);
+
+    let (historic, future) = long_series(1_010);
+    let run = run(&[]);
+    let train = TrainInput::new(&historic, &run, None);
+    let predict = PredictInput::new(&historic, &future, &run, None);
+    let model = SimpleMultistep;
+    let lags = |n_target_lags, n_samples| Config {
+        n_target_lags,
+        n_samples,
+        rf_n_estimators: 2,
+        ..seeded(1)
+    };
+    assert_eq!(model.validate_train(&lags(1_201, 100), train).len(), 1);
+    assert_eq!(
+        model.validate_predict(&lags(1_000, 10_001), predict).len(),
+        1
+    );
+    assert_eq!(
+        model.validate_predict(&lags(1_000, 10_000), predict).len(),
+        0
+    );
+
+    // The trained model's lags count, whatever the configuration says.
+    let trained = model.train(&lags(1_000, 100), train).unwrap();
+    assert_eq!(trained.state.n_target_lags, 1_000);
+    let err = model
+        .predict(&trained, &lags(6, 10_001), predict)
+        .unwrap_err();
+    assert!(err.to_string().contains("10000000"), "{err}");
+    let out = model.predict(&trained, &lags(6, 10_000), predict).unwrap();
+    assert_eq!(out.n_rows(), 1);
+    assert!(out.has("sample_9999"));
+}
+
+/// `rf_min_samples_leaf` up to `usize::MAX` trains (trees of a single leaf), without overflow.
+#[test]
+fn a_huge_min_samples_leaf_trains() {
+    let (historic, future) = data();
+    let run = run(&[]);
+    let config: Config =
+        serde_json::from_value(json!({"rf_min_samples_leaf": 9_223_372_036_854_775_808u64, "seed": 1, "rf_n_estimators": 3}))
+            .unwrap();
+    let model = SimpleMultistep;
+    let trained = model
+        .train(&config, TrainInput::new(&historic, &run, None))
+        .unwrap();
+    assert!(trained.forest.trees.iter().all(|t| t.nodes.len() == 1));
+    let out = model
+        .predict(
+            &trained,
+            &config,
+            PredictInput::new(&historic, &future, &run, None),
+        )
+        .unwrap();
+    assert_eq!(out.n_rows(), 9);
+}

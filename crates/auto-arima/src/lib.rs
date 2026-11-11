@@ -46,6 +46,16 @@ pub const MAX_N_SAMPLES: usize = 100_000;
 /// locations at 12 periods and the default 100 samples take 120 million.
 pub const MAX_FORECAST_SAMPLES: usize = 250_000_000;
 
+/// Most periods on one location's gap-free grid (first to last period, gaps included): 8,333
+/// years of months or 1,923 of weeks, against the decades of real series. A grid is counted and
+/// checked before it is filled, so a history with two far-apart periods cannot ask for unbounded
+/// memory.
+pub const MAX_GRID_PERIODS: usize = 100_000;
+
+/// Most periods on all locations' grids together (100,000 locations of 1,000 periods): the time
+/// an ARIMA takes grows with the grid, and the locations' grids are filled one after the other.
+pub const MAX_TOTAL_GRID_PERIODS: usize = 100_000_000;
+
 /// Why `n_samples` cannot be used, if it cannot.
 fn n_samples_problem(n: usize) -> Option<String> {
     (!(1..=MAX_N_SAMPLES).contains(&n))
@@ -160,10 +170,11 @@ impl Model for AutoArima {
         let target = self.info().target;
         let series = series_by_location(input.data, &target)?;
         let season = season_of(&series)?;
+        check_grids(&series, season)?;
         let locations = series
             .par_iter()
             .map(|(location, s)| {
-                let values = on_grid(location, s)?;
+                let values = on_grid(location, s, season)?;
                 let fitted = model::fit(&values, season).map_err(|e| {
                     Error::model(format!("no ARIMA for location '{location}': {e}"))
                 })?;
@@ -182,6 +193,7 @@ impl Model for AutoArima {
         config.check(Some(input.future.n_rows()))?;
         let target = self.info().target;
         let history = series_by_location(input.historic, &target)?;
+        check_grids(&history, trained.season)?;
         let seed = config.seed();
         predict_by_location(input.future, config.n_samples, |location, rows| {
             let fitted = trained.locations.get(location).ok_or_else(|| {
@@ -192,7 +204,7 @@ impl Model for AutoArima {
             let s = history.get(location).ok_or_else(|| {
                 Error::invalid(format!("location '{location}' has no historic data"))
             })?;
-            let values = on_grid(location, s)?;
+            let values = on_grid(location, s, trained.season)?;
             let last = *s.periods.last().ok_or_else(|| {
                 Error::invalid(format!("location '{location}' has no historic data"))
             })?;
@@ -235,20 +247,87 @@ fn season_of(series: &BTreeMap<String, Series>) -> Result<usize> {
     Ok(first as usize)
 }
 
+/// The resolution with `season` periods per year, for messages.
+fn resolution(season: usize) -> &'static str {
+    if season == 12 { "monthly" } else { "weekly" }
+}
+
+/// The number of periods on a location's gap-free grid, from its first to its last period. Fails
+/// for a period of another resolution than `season`'s (as in training), a Sunday-start week, and a
+/// grid over [`MAX_GRID_PERIODS`]. Counted from the periods' ordinals, before anything is filled.
+fn grid_len(location: &str, s: &Series, season: usize) -> Result<usize> {
+    if let Some(p) = s
+        .periods
+        .iter()
+        .find(|p| p.periods_per_year() as usize != season)
+    {
+        return Err(Error::invalid(format!(
+            "location '{location}': period {p} is not {} as the training data is",
+            resolution(season)
+        )));
+    }
+    let (Some(&first), Some(&last)) = (s.periods.first(), s.periods.last()) else {
+        return Ok(0);
+    };
+    let ordinal = |p: Period| {
+        p.ordinal().ok_or_else(|| {
+            Error::invalid(format!(
+                "location '{location}': cannot step past {p} (Sunday-start weeks are not supported)"
+            ))
+        })
+    };
+    let span = ordinal(last)?
+        .saturating_sub(ordinal(first)?)
+        .saturating_add(1);
+    usize::try_from(span)
+        .ok()
+        .filter(|&n| n <= MAX_GRID_PERIODS)
+        .ok_or_else(|| {
+            Error::invalid(format!(
+                "location '{location}': {first} to {last} is {span} periods, more than \
+                 {MAX_GRID_PERIODS} periods"
+            ))
+        })
+}
+
+/// Check every location's grid (resolution and length) and their total against
+/// [`MAX_TOTAL_GRID_PERIODS`], before any grid is filled.
+fn check_grids(series: &BTreeMap<String, Series>, season: usize) -> Result<()> {
+    let mut total = 0usize;
+    for (location, s) in series {
+        total = total.saturating_add(grid_len(location, s, season)?);
+    }
+    if total > MAX_TOTAL_GRID_PERIODS {
+        return Err(Error::invalid(format!(
+            "the locations' gap-free series hold {total} periods, more than \
+             {MAX_TOTAL_GRID_PERIODS}"
+        )));
+    }
+    Ok(())
+}
+
 /// A location's values on the gap-free grid from its first to its last period: a period missing
-/// from the table counts as missing (NaN), as chap-core fills it, so the ARIMA steps over it.
-fn on_grid(location: &str, s: &Series) -> Result<Vec<f64>> {
-    let mut out = Vec::with_capacity(s.periods.len());
+/// from the table counts as missing (NaN), as chap-core fills it, so the ARIMA steps over it. The
+/// grid is counted and bounded ([`grid_len`]) before it is filled.
+fn on_grid(location: &str, s: &Series, season: usize) -> Result<Vec<f64>> {
+    let n = grid_len(location, s, season)?;
+    let off_grid = |period: Period| {
+        Error::invalid(format!(
+            "location '{location}': period {period} is not on the series' grid"
+        ))
+    };
+    let mut out = Vec::with_capacity(n);
     let mut expected: Option<Period> = None;
     for (&period, &value) in s.periods.iter().zip(&s.values) {
         while let Some(next) = expected.filter(|e| *e < period) {
+            if out.len() >= n {
+                return Err(off_grid(period));
+            }
             out.push(f64::NAN);
             expected = next.succ();
         }
         if expected.is_some_and(|e| e != period) {
-            return Err(Error::invalid(format!(
-                "location '{location}': period {period} is not on the series' grid"
-            )));
+            return Err(off_grid(period));
         }
         out.push(value);
         expected = Some(period.succ().ok_or_else(|| {
@@ -302,10 +381,51 @@ mod tests {
             periods: vec![month(2020, 11), month(2021, 2)],
             values: vec![1.0, 4.0],
         };
-        let v = on_grid("a", &s).unwrap();
+        let v = on_grid("a", &s, 12).unwrap();
         assert_eq!(v.len(), 4);
         assert!(v[1].is_nan() && v[2].is_nan());
         assert_eq!(steps_after(month(2020, 11), month(2021, 2)).unwrap(), 3);
         assert!(steps_after(month(2021, 2), month(2021, 2)).is_err());
+    }
+
+    #[test]
+    fn grid_is_bounded_and_of_one_resolution() {
+        let week = |year, week| Period::Week {
+            year,
+            week,
+            sunday: false,
+        };
+        let s = |periods: Vec<Period>| Series {
+            values: vec![1.0; periods.len()],
+            periods,
+        };
+        // Every month sorts before every week: filling months towards a week never ends.
+        assert!(month(9999, 12) < week(1, 1));
+        assert!(on_grid("a", &s(vec![month(2024, 1), week(2024, 2)]), 12).is_err());
+        assert!(on_grid("a", &s(vec![month(2024, 1), week(2024, 2)]), 52).is_err());
+        // Exactly the most periods, and one more.
+        let first = month(2000, 1);
+        let mut last = first;
+        for _ in 1..MAX_GRID_PERIODS {
+            last = last.succ().unwrap();
+        }
+        assert_eq!(
+            on_grid("a", &s(vec![first, last]), 12).unwrap().len(),
+            MAX_GRID_PERIODS
+        );
+        let over = s(vec![first, last.succ().unwrap()]);
+        assert!(grid_len("a", &over, 12).is_err());
+        assert!(on_grid("a", &over, 12).is_err());
+        // Far apart weeks (i32 years) are counted, not filled.
+        let far = s(vec![week(-2_000_000_000, 1), week(2_000_000_000, 1)]);
+        assert!(on_grid("a", &far, 52).is_err());
+        // The total over locations.
+        let near = s(vec![first, last]);
+        let many: BTreeMap<String, Series> = (0..=MAX_TOTAL_GRID_PERIODS / MAX_GRID_PERIODS)
+            .map(|i| (format!("L{i}"), near.clone()))
+            .collect();
+        assert!(check_grids(&many, 12).is_err());
+        let fewer: BTreeMap<String, Series> = many.into_iter().skip(1).collect();
+        assert!(check_grids(&fewer, 12).is_ok());
     }
 }

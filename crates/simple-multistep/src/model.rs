@@ -138,9 +138,17 @@ pub fn residual_scale(forest: &Forest, rows: &[Vec<f64>], y: &[f64]) -> f64 {
     (total / n as f64).max(MIN_SCALE)
 }
 
+/// Most feature values built at once while forecasting (8 MB): the trajectories' rows go to the
+/// forest in blocks of this many values (at least one row), so the feature matrix does not grow
+/// with `n_samples` or the number of locations.
+pub const BLOCK_VALUES: usize = 1_000_000;
+
 /// `n_samples` recursive trajectories for one location. `covariates[s]` holds the covariate
 /// features of future month `s` (empty without covariates), `previous` the last `n_target_lags`
 /// observed cases, oldest first. Returns, per future month, its `n_samples` samples.
+///
+/// Each trajectory keeps only its last `n_target_lags` values (a rolling window): the earlier ones
+/// are in the returned samples already.
 #[allow(clippy::too_many_arguments)]
 pub fn forecast(
     forest: &Forest,
@@ -152,25 +160,66 @@ pub fn forecast(
     n_samples: usize,
     rng: &mut Rng,
 ) -> Vec<Vec<f64>> {
-    let mut trajectories: Vec<Vec<f64>> = vec![previous.to_vec(); n_samples];
+    forecast_in_blocks(
+        forest,
+        scale,
+        covariates,
+        (location, n_locations),
+        previous,
+        n_samples,
+        BLOCK_VALUES,
+        rng,
+    )
+}
+
+/// [`forecast`], with the rows built `block_values` values at a time.
+#[allow(clippy::too_many_arguments)]
+fn forecast_in_blocks(
+    forest: &Forest,
+    scale: f64,
+    covariates: &[Vec<f64>],
+    (location, n_locations): (Option<usize>, usize),
+    previous: &[f64],
+    n_samples: usize,
+    block_values: usize,
+    rng: &mut Rng,
+) -> Vec<Vec<f64>> {
     let lags = previous.len();
+    // Trajectory `i`'s last `lags` values, oldest first, at `windows[i * lags..(i + 1) * lags]`.
+    let mut windows = previous.repeat(n_samples);
+    let window = |windows: &[f64], i: usize| -> std::ops::Range<usize> {
+        let start = i.saturating_mul(lags);
+        start..start.saturating_add(lags).min(windows.len())
+    };
     let mut out = Vec::with_capacity(covariates.len());
-    let (mut rows, mut means) = (Vec::new(), Vec::new());
+    let (mut rows, mut block_means, mut means) = (Vec::new(), Vec::new(), Vec::new());
     for step_covariates in covariates {
-        // Every trajectory's row for this month, then the forest's mean for each.
-        rows.clear();
-        for trajectory in &trajectories {
-            let window = trajectory
-                .get(trajectory.len().saturating_sub(lags)..)
-                .unwrap_or_default();
-            rows.extend(feature_row(step_covariates, location, n_locations, window));
-        }
+        // Every trajectory's row for this month, a block at a time, then the forest's mean for each.
         let width = step_covariates.len() + n_locations + lags;
-        forest.predict_rows(&rows, width, &mut means);
-        // Draw each trajectory's value for the month and append it.
+        let block = (block_values / width.max(1)).max(1);
+        means.clear();
+        let mut start = 0;
+        while start < n_samples {
+            let end = start.saturating_add(block).min(n_samples);
+            rows.clear();
+            for i in start..end {
+                let w = windows.get(window(&windows, i)).unwrap_or_default();
+                rows.extend(feature_row(step_covariates, location, n_locations, w));
+            }
+            forest.predict_rows(&rows, width, &mut block_means);
+            means.extend_from_slice(&block_means);
+            start = end;
+        }
+        // Draw each trajectory's value for the month and roll it into its window.
         let samples: Vec<f64> = means.iter().map(|&m| rng.gauss(m, scale)).collect();
-        for (trajectory, &value) in trajectories.iter_mut().zip(&samples) {
-            trajectory.push(value);
+        for (i, &value) in samples.iter().enumerate() {
+            let range = window(&windows, i);
+            if let Some(w) = windows.get_mut(range).filter(|w| !w.is_empty()) {
+                w.copy_within(1.., 0);
+                if let Some(last) = w.last_mut() {
+                    *last = value;
+                }
+            }
         }
         out.push(samples);
     }
@@ -239,5 +288,101 @@ mod tests {
                 assert!((s - (51.0 + step as f64)).abs() < 1.5, "{s} at step {step}");
             }
         }
+    }
+
+    /// The forecast as it was first written: every trajectory keeps its whole history and all
+    /// rows of a month are built at once.
+    #[allow(clippy::too_many_arguments)]
+    fn forecast_whole(
+        forest: &Forest,
+        scale: f64,
+        covariates: &[Vec<f64>],
+        location: Option<usize>,
+        n_locations: usize,
+        previous: &[f64],
+        n_samples: usize,
+        rng: &mut Rng,
+    ) -> Vec<Vec<f64>> {
+        let mut trajectories: Vec<Vec<f64>> = vec![previous.to_vec(); n_samples];
+        let lags = previous.len();
+        let mut out = Vec::new();
+        let (mut rows, mut means) = (Vec::new(), Vec::new());
+        for step_covariates in covariates {
+            rows.clear();
+            for t in &trajectories {
+                rows.extend(feature_row(
+                    step_covariates,
+                    location,
+                    n_locations,
+                    &t[t.len() - lags..],
+                ));
+            }
+            let width = step_covariates.len() + n_locations + lags;
+            forest.predict_rows(&rows, width, &mut means);
+            let samples: Vec<f64> = means.iter().map(|&m| rng.gauss(m, scale)).collect();
+            for (t, &v) in trajectories.iter_mut().zip(&samples) {
+                t.push(v);
+            }
+            out.push(samples);
+        }
+        out
+    }
+
+    #[test]
+    fn rolling_windows_and_blocks_give_the_same_forecast() {
+        // Two covariate features, three locations, three lags.
+        let rows: Vec<Vec<f64>> = (0..300)
+            .map(|i| {
+                let f = f64::from(i);
+                vec![f % 7.0, f % 5.0, 0.0, 1.0, 0.0, f, f + 1.0, f + 2.0]
+            })
+            .collect();
+        let y: Vec<f64> = (0..300).map(|i| f64::from(i) + 3.0).collect();
+        let params = ForestParams {
+            n_estimators: 7,
+            max_depth: 12,
+            min_samples_leaf: 2,
+        };
+        let forest = Forest::fit(&Columns::from_rows(&rows), &y, params, 4);
+        let covariates: Vec<Vec<f64>> = (0..6).map(|s| vec![f64::from(s), 2.0]).collect();
+        let previous = [100.0, 101.0, 102.0];
+        let whole = forecast_whole(
+            &forest,
+            2.0,
+            &covariates,
+            Some(1),
+            3,
+            &previous,
+            37,
+            &mut Rng::new(9),
+        );
+        for block_values in [1, 8, 9, 80, 1_000_000] {
+            let rolled = forecast_in_blocks(
+                &forest,
+                2.0,
+                &covariates,
+                (Some(1), 3),
+                &previous,
+                37,
+                block_values,
+                &mut Rng::new(9),
+            );
+            assert_eq!(rolled, whole, "{block_values}");
+        }
+        // No lags at all, and no samples.
+        let none = forecast(&forest, 2.0, &covariates, None, 3, &[], 4, &mut Rng::new(1));
+        assert_eq!(none.len(), 6);
+        assert!(none.iter().all(|s| s.len() == 4));
+        let empty = forecast(
+            &forest,
+            2.0,
+            &covariates,
+            None,
+            3,
+            &previous,
+            0,
+            &mut Rng::new(1),
+        );
+        assert!(empty.iter().all(Vec::is_empty));
     }
 }

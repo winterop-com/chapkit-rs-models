@@ -28,7 +28,8 @@ use model::COVARIATE_LAGS;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Config {
     /// Number of lagged target values to feed the one-step regressor.
-    #[serde(default = "default_n_target_lags")]
+    #[serde(default = "default_n_target_lags", deserialize_with = "n_target_lags")]
+    #[schemars(range(min = 1, max = MAX_N_TARGET_LAGS))]
     pub n_target_lags: usize,
     /// Number of trajectory samples drawn per location at predict time.
     #[serde(default = "default_n_samples", deserialize_with = "n_samples")]
@@ -77,6 +78,25 @@ pub const MAX_N_SAMPLES: usize = 100_000;
 /// tree never has more nodes than twice its training rows.
 pub const MAX_RF_N_ESTIMATORS: usize = 10_000;
 
+/// Most target lags: a century of months, a hundred times the top of the search space (12).
+/// Training rows and forecast trajectories grow with it.
+pub const MAX_N_TARGET_LAGS: usize = 1_200;
+
+/// Most values one location's trajectories may hold (`n_samples` times the trained model's
+/// `n_target_lags`): 80 MB per location being forecast. The default 100 samples take 600; the
+/// most samples (100,000) take up to 100 lags, the most lags (1,200) up to 8,333 samples.
+pub const MAX_TRAJECTORY_VALUES: usize = 10_000_000;
+
+/// Why `n_samples` trajectories of `n_target_lags` values are too many, if they are.
+fn trajectory_problem(n_samples: usize, n_target_lags: usize) -> Option<String> {
+    (n_samples.saturating_mul(n_target_lags) > MAX_TRAJECTORY_VALUES).then(|| {
+        format!(
+            "{n_samples} samples of n_target_lags = {n_target_lags} are more than \
+             {MAX_TRAJECTORY_VALUES} trajectory values per location"
+        )
+    })
+}
+
 /// Most samples one forecast may hold (future rows times `n_samples`): 2 GB of numbers. 100,000
 /// locations at 12 months and the default 100 samples take 120 million.
 pub const MAX_FORECAST_SAMPLES: usize = 250_000_000;
@@ -101,6 +121,10 @@ fn n_samples<'de, D: serde::Deserializer<'de>>(d: D) -> std::result::Result<usiz
     bounded(d, "n_samples", MAX_N_SAMPLES)
 }
 
+fn n_target_lags<'de, D: serde::Deserializer<'de>>(d: D) -> std::result::Result<usize, D::Error> {
+    bounded(d, "n_target_lags", MAX_N_TARGET_LAGS)
+}
+
 fn rf_n_estimators<'de, D: serde::Deserializer<'de>>(d: D) -> std::result::Result<usize, D::Error> {
     bounded(d, "rf_n_estimators", MAX_RF_N_ESTIMATORS)
 }
@@ -123,7 +147,7 @@ impl Config {
     /// forecast of that many rows.
     fn problem(&self, future_rows: Option<usize>) -> Option<String> {
         let bounds = [
-            ("n_target_lags", self.n_target_lags, usize::MAX),
+            ("n_target_lags", self.n_target_lags, MAX_N_TARGET_LAGS),
             ("n_samples", self.n_samples, MAX_N_SAMPLES),
             ("rf_max_depth", self.rf_max_depth, usize::MAX),
             ("rf_min_samples_leaf", self.rf_min_samples_leaf, usize::MAX),
@@ -132,6 +156,7 @@ impl Config {
         bounds
             .into_iter()
             .find_map(|(name, value, max)| out_of_bounds(name, value, max))
+            .or_else(|| trajectory_problem(self.n_samples, self.n_target_lags))
             .or_else(|| {
                 let rows = future_rows?;
                 (rows.saturating_mul(self.n_samples) > MAX_FORECAST_SAMPLES).then(|| {
@@ -288,6 +313,10 @@ impl Model for SimpleMultistep {
     ) -> Result<DataFrame> {
         config.check(Some(input.future.n_rows()))?;
         let state = &trained.state;
+        // The trained model's lags, which a checkpoint may hold beyond the configuration's.
+        if let Some(p) = trajectory_problem(config.n_samples, state.n_target_lags) {
+            return Err(Error::Config(p));
+        }
         let target = self.info().target;
         let tables = PredictTables::read(input.historic, input.future, &target, &state.covariates)?;
         let seed = config.seed();

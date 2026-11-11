@@ -59,7 +59,7 @@ months start from sampled, not observed, values. Samples are not clipped at zero
 
 | option | default | meaning |
 |---|---|---|
-| `n_target_lags` | `6` | months of cases in each row |
+| `n_target_lags` | `6` | months of cases in each row, at most 1,200 |
 | `n_samples` | `100` | trajectories per location, at most 100,000 |
 | `rf_max_depth` | `10` | maximum depth of each tree |
 | `rf_min_samples_leaf` | `5` | minimum rows in a leaf |
@@ -102,7 +102,7 @@ to 67.0 and November medians of 135.2 to 153.4: the same model, drawn with other
 | future data | the months to forecast, with the covariates |
 | configuration | see [Options](#options) |
 | output | `n_samples` samples per location and future month |
-| fails when | a configured covariate column is missing (the message names it), a location to forecast has no history or fewer than `n_target_lags` months of it, an option is 0, `n_samples` is above 100,000 or `rf_n_estimators` above 10,000, or a forecast would hold more than 250 million samples (future rows times `n_samples`) |
+| fails when | a configured covariate column is missing (the message names it), a location to forecast has no history or fewer than `n_target_lags` months of it, an option is 0, `n_samples` is above 100,000, `n_target_lags` above 1,200 or `rf_n_estimators` above 10,000, a location's trajectories would hold more than 10 million values (`n_samples` times the trained `n_target_lags`), or a forecast would hold more than 250 million samples (future rows times `n_samples`) |
 
 A location with no observed cases at all is still forecast, as in the original: its missing lags go down the
 larger branch at every split, which is scikit-learn's rule when training had no missing values. A location
