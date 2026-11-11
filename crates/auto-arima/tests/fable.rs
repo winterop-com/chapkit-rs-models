@@ -142,5 +142,7 @@ fn refit_on_a_short_history_matches_fable() {
         "sd": [2.4339038870172334, 2.8172607367800619, 3.3643678266008825],
     });
     let (mean, sd) = differences(&fc, &expected);
-    assert!(mean < 1e-6 && sd < 1e-6, "{mean:e} {sd:e}");
+    // 1e-5, as for the other fits: the optimum moves in the last digits between platforms (on
+    // Linux x86_64 the sd differs from fable's by 1.1e-6, on macOS arm64 by less than 1e-6).
+    assert!(mean < 1e-5 && sd < 1e-5, "{mean:e} {sd:e}");
 }
