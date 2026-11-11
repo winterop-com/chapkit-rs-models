@@ -211,3 +211,45 @@ fn search_space_is_valid() {
         assert!(json.get(key).is_some(), "{key}");
     }
 }
+
+/// A configuration cannot ask for unbounded memory or time: `n_samples` is at most 100,000 and
+/// `rf_n_estimators` at most 10,000 (where the configuration is read, and in `$validate`).
+#[test]
+fn bounds_the_samples_and_the_forest() {
+    for (key, n) in [
+        ("n_samples", 0),
+        ("n_samples", 100_001),
+        ("n_samples", 1_000_000_000),
+        ("rf_n_estimators", 0),
+        ("rf_n_estimators", 10_001),
+    ] {
+        assert!(
+            serde_json::from_value::<Config>(json!({key: n})).is_err(),
+            "{key} {n}"
+        );
+    }
+    let most: Config =
+        serde_json::from_value(json!({"n_samples": 100_000, "rf_n_estimators": 10_000})).unwrap();
+    assert_eq!((most.n_samples, most.rf_n_estimators), (100_000, 10_000));
+
+    let (historic, future) = data();
+    let run = run(&[]);
+    let train = TrainInput::new(&historic, &run, None);
+    let predict = PredictInput::new(&historic, &future, &run, None);
+    let model = SimpleMultistep;
+    let huge = Config {
+        n_samples: 1_000_000_000,
+        ..seeded(1)
+    };
+    let forest = Config {
+        rf_n_estimators: 1_000_000_000,
+        ..seeded(1)
+    };
+    assert_eq!(model.validate_train(&huge, train).len(), 1);
+    assert_eq!(model.validate_train(&forest, train).len(), 1);
+    assert_eq!(model.validate_predict(&huge, predict).len(), 1);
+    assert!(model.train(&forest, train).is_err());
+    let trained = model.train(&seeded(1), train).unwrap();
+    assert!(model.predict(&trained, &huge, predict).is_err());
+    assert_eq!(model.validate_predict(&seeded(1), predict).len(), 0);
+}

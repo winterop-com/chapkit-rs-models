@@ -17,6 +17,9 @@ fn fixture(case: &str) -> Fixture {
     .unwrap()
 }
 
+/// The fixture datasets: the baseline fixtures, and short series where ratios run out.
+const CASES: [&str; 4] = ["monthly", "weekly", "single", "fallbacks"];
+
 /// The option sets in the fixtures, by label (the model's `chap_seed.yaml`, plus both together).
 const OPTIONS: [(&str, f64, f64); 6] = [
     ("biased_over", 1.0, 0.3),
@@ -29,7 +32,7 @@ const OPTIONS: [(&str, f64, f64); 6] = [
 
 #[test]
 fn defaults_are_seasonal_shift_persistence_bit_for_bit() {
-    for case in ["monthly", "weekly"] {
+    for case in CASES {
         check_parity(
             case,
             "seasonal_shift_persistence",
@@ -54,7 +57,7 @@ fn defaults_are_seasonal_shift_persistence_bit_for_bit() {
 
 #[test]
 fn options_match_the_original() {
-    for case in ["monthly", "weekly"] {
+    for case in CASES {
         let fx = fixture(case);
         for (label, spread_factor, log_bias) in OPTIONS {
             let config = Options {

@@ -182,3 +182,48 @@ fn rejects_an_unknown_location_and_no_samples() {
             .is_err()
     );
 }
+
+/// A configuration cannot ask for unbounded memory: `n_samples` is at most 100,000 (where the
+/// configuration is read, and in `$validate`), and a forecast holds at most 250 million samples.
+#[test]
+fn bounds_the_samples() {
+    for n in [0, 100_001, 1_000_000_000] {
+        assert!(
+            serde_json::from_value::<Config>(json!({"n_samples": n})).is_err(),
+            "{n}"
+        );
+    }
+    let most: Config = serde_json::from_value(json!({"n_samples": 100_000})).unwrap();
+    assert_eq!(most.n_samples, 100_000);
+
+    let f = fixture("fable_monthly.json");
+    let (historic, future) = frames(&f, 27, 3);
+    let run = RunInfo::with_periods(3);
+    let model = AutoArima;
+    let huge = Config {
+        n_samples: 1_000_000_000,
+        seed: Some(1),
+    };
+    let train = TrainInput::new(&historic, &run, None);
+    let predict = PredictInput::new(&historic, &future, &run, None);
+    assert_eq!(model.validate_train(&huge, train).len(), 1);
+    assert_eq!(model.validate_predict(&huge, predict).len(), 1);
+    assert!(model.train(&huge, train).is_err());
+    let trained = model.train(&seeded(1), train).unwrap();
+    assert!(model.predict(&trained, &huge, predict).is_err());
+    assert_eq!(model.validate_predict(&seeded(1), predict).len(), 0);
+
+    // Within the per-period bound, but over the budget for 2,501 future rows.
+    let many: DataFrame = serde_json::from_value(json!({
+        "columns": ["time_period", "location"],
+        "data": (0..2501).map(|i| json!(["2012-04", format!("L{i}")])).collect::<Vec<_>>(),
+    }))
+    .unwrap();
+    let most = Config {
+        n_samples: 100_000,
+        seed: Some(1),
+    };
+    let predict = PredictInput::new(&historic, &many, &run, None);
+    assert_eq!(model.validate_predict(&most, predict).len(), 1);
+    assert_eq!(model.validate_predict(&seeded(1), predict).len(), 0);
+}

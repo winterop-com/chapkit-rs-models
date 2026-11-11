@@ -78,12 +78,15 @@ def run(case: str, period, n_train: int, horizon: int) -> None:
     historic_extra = train[train.location == "A"].copy()
     historic_extra["location"] = "D"
     historic = pd.concat([train, historic_extra], ignore_index=True)
+    write(case, train, historic, future_all)
 
-    out = {"train": wire(train), "historic": wire(historic), "future": wire(future_all), "predictions": {}}
+
+def write(case: str, train: pd.DataFrame, historic: pd.DataFrame, future: pd.DataFrame) -> None:
+    out = {"train": wire(train), "historic": wire(historic), "future": wire(future), "predictions": {}}
     for name in MODELS:
         model = get_builtin_model(name)()
         model.train(DataSet.from_pandas(train))
-        pred = model.predict(DataSet.from_pandas(historic), DataSet.from_pandas(future_all))
+        pred = model.predict(DataSet.from_pandas(historic), DataSet.from_pandas(future))
         out["predictions"][name] = {
             f"{loc}|{period.id}": [float(v) for v in row]
             for loc, samples in pred.items()
@@ -91,10 +94,46 @@ def run(case: str, period, n_train: int, horizon: int) -> None:
         }
     path = OUT / f"baselines_{case}.json"
     path.write_text(json.dumps(out))
-    print(f"wrote {path} ({len(future_all)} future rows)")
+    print(f"wrote {path} ({len(future)} future rows)")
+
+
+def table(periods: list[str], series: dict[str, list[float] | None]) -> pd.DataFrame:
+    """One row per location and period; `None` series leave out disease_cases (future data)."""
+    rows = [
+        {"time_period": p, "location": loc}
+        | ({} if values is None else {"disease_cases": float(values[i])})
+        for loc, values in series.items()
+        for i, p in enumerate(periods)
+    ]
+    return pd.DataFrame(rows)
+
+
+def short() -> None:
+    """Short series, so ratios run out and the fallbacks for missing ratios decide the forecast.
+
+    `single`: one location, January and February [1, 3], forecast 2 months: the second month has
+    no ratio at horizon 2 and falls back to the single ratio at horizon 1.
+    `fallbacks`: four months and four locations with holes, forecast 4 months, so horizons run
+    past those trained, and own single ratios meet pooled ones.
+    """
+    nan = float("nan")
+    train = table(["2018-01", "2018-02"], {"A": [1, 3]})
+    write("single", train, train, table(["2018-03", "2018-04"], {"A": None}))
+    months = ["2018-01", "2018-02", "2018-03", "2018-04"]
+    train = table(
+        months,
+        {"A": [nan, nan, 1, 3], "B": [5, 2, 8, 4], "C": [1, nan, 2, nan], "E": [nan, nan, nan, nan]},
+    )
+    historic = table(
+        months,
+        {"A": [nan, nan, 1, 3], "B": [5, 2, 8, 4], "C": [1, nan, 2, nan], "E": [nan, 6, nan, nan]},
+    )
+    future = table(["2018-05", "2018-06", "2018-07", "2018-08"], dict.fromkeys("ABCE"))
+    write("fallbacks", train, historic, future)
 
 
 if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     run("monthly", monthly, 40, 6)
     run("weekly", weekly, 80, 8)
+    short()

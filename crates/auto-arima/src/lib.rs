@@ -11,8 +11,8 @@ use std::collections::BTreeMap;
 use chapkit::locations::{Series, predict_by_location, series_by_location};
 use chapkit::rng::Rng;
 use chapkit::{
-    AssessedStatus, Error, Model, ModelInfo, ModelMetadata, Period, PeriodType, PredictInput,
-    Result, TrainInput,
+    AssessedStatus, Diagnostic, Error, Model, ModelInfo, ModelMetadata, Period, PeriodType,
+    PredictInput, Result, TrainInput,
 };
 use rayon::prelude::*;
 use schemars::JsonSchema;
@@ -25,7 +25,8 @@ pub use model::Fitted;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Config {
     /// Number of samples drawn per forecast period.
-    #[serde(default = "default_n_samples")]
+    #[serde(default = "default_n_samples", deserialize_with = "n_samples")]
+    #[schemars(range(min = 1, max = MAX_N_SAMPLES))]
     pub n_samples: usize,
     /// Seed for the sampling; random when not set, as in the original.
     #[serde(default)]
@@ -34,6 +35,27 @@ pub struct Config {
 
 fn default_n_samples() -> usize {
     100
+}
+
+/// Most samples per forecast period: a thousand times the default (the original's fixed 100,
+/// which is also what chap-core evaluates), well past any use of the samples, so that a
+/// configuration cannot ask for unbounded memory.
+pub const MAX_N_SAMPLES: usize = 100_000;
+
+/// Most samples one forecast may hold (future rows times `n_samples`): 2 GB of numbers. 100,000
+/// locations at 12 periods and the default 100 samples take 120 million.
+pub const MAX_FORECAST_SAMPLES: usize = 250_000_000;
+
+/// Why `n_samples` cannot be used, if it cannot.
+fn n_samples_problem(n: usize) -> Option<String> {
+    (!(1..=MAX_N_SAMPLES).contains(&n))
+        .then(|| format!("n_samples must be between 1 and {MAX_N_SAMPLES}, got {n}"))
+}
+
+/// Reads `n_samples`, rejecting it out of bounds as the configuration is stored.
+fn n_samples<'de, D: serde::Deserializer<'de>>(d: D) -> std::result::Result<usize, D::Error> {
+    let n = usize::deserialize(d)?;
+    n_samples_problem(n).map_or(Ok(n), |p| Err(serde::de::Error::custom(p)))
 }
 
 impl Default for Config {
@@ -46,11 +68,30 @@ impl Default for Config {
 }
 
 impl Config {
-    fn check(&self) -> Result<()> {
-        if self.n_samples == 0 {
-            return Err(Error::Config("n_samples must be at least 1".into()));
-        }
-        Ok(())
+    /// Why the configuration cannot be used, if it cannot; with `future_rows`, also for a
+    /// forecast of that many rows.
+    fn problem(&self, future_rows: Option<usize>) -> Option<String> {
+        n_samples_problem(self.n_samples).or_else(|| {
+            let rows = future_rows?;
+            (rows.saturating_mul(self.n_samples) > MAX_FORECAST_SAMPLES).then(|| {
+                format!(
+                    "{rows} future rows of {} samples are more than {MAX_FORECAST_SAMPLES} samples",
+                    self.n_samples
+                )
+            })
+        })
+    }
+
+    fn diagnostics(&self, future_rows: Option<usize>) -> Vec<Diagnostic> {
+        self.problem(future_rows)
+            .map(|p| Diagnostic::error("invalid_option", p))
+            .into_iter()
+            .collect()
+    }
+
+    fn check(&self, future_rows: Option<usize>) -> Result<()> {
+        self.problem(future_rows)
+            .map_or(Ok(()), |p| Err(Error::Config(p)))
     }
 
     /// The seed of this call: the configured one, else a fresh one.
@@ -106,8 +147,16 @@ impl Model for AutoArima {
         }
     }
 
+    fn validate_train(&self, config: &Config, _: TrainInput<'_>) -> Vec<Diagnostic> {
+        config.diagnostics(None)
+    }
+
+    fn validate_predict(&self, config: &Config, input: PredictInput<'_>) -> Vec<Diagnostic> {
+        config.diagnostics(Some(input.future.n_rows()))
+    }
+
     fn train(&self, config: &Config, input: TrainInput<'_>) -> Result<Trained> {
-        config.check()?;
+        config.check(None)?;
         let target = self.info().target;
         let series = series_by_location(input.data, &target)?;
         let season = season_of(&series)?;
@@ -130,7 +179,7 @@ impl Model for AutoArima {
         config: &Config,
         input: PredictInput<'_>,
     ) -> Result<chapkit::DataFrame> {
-        config.check()?;
+        config.check(Some(input.future.n_rows()))?;
         let target = self.info().target;
         let history = series_by_location(input.historic, &target)?;
         let seed = config.seed();

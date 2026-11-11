@@ -41,12 +41,18 @@ fn orders_of(fit: &model::Fitted) -> ([usize; 6], bool) {
     )
 }
 
-/// Largest relative difference (relative to the larger of |expected| and 1).
+/// Largest relative difference (relative to the larger of |expected| and 1). A value that is not
+/// finite on one side only is infinitely far off (`f64::max` would skip a NaN); missing on both
+/// sides (fable's NA) counts as equal.
 fn rel(got: &[f64], expected: &[f64]) -> f64 {
     assert_eq!(got.len(), expected.len());
     got.iter()
         .zip(expected)
-        .map(|(x, y)| (x - y).abs() / y.abs().max(1.0))
+        .map(|(x, y)| match (x.is_finite(), y.is_finite()) {
+            (true, true) => (x - y).abs() / y.abs().max(1.0),
+            (false, false) if (x.is_nan() && y.is_nan()) || x.to_bits() == y.to_bits() => 0.0,
+            _ => f64::INFINITY,
+        })
         .fold(0.0, f64::max)
 }
 
@@ -145,4 +151,15 @@ fn refit_on_a_short_history_matches_fable() {
     // 1e-5, as for the other fits: the optimum moves in the last digits between platforms (on
     // Linux x86_64 the sd differs from fable's by 1.1e-6, on macOS arm64 by less than 1e-6).
     assert!(mean < 1e-5 && sd < 1e-5, "{mean:e} {sd:e}");
+}
+
+/// A missing (NaN) or infinite forecast where fable has a number, or the other way round, is a
+/// mismatch; missing where fable's is missing too is a match.
+#[test]
+fn rel_counts_missing_values() {
+    assert!(rel(&[f64::NAN], &[10.0]).is_infinite());
+    assert!(rel(&[10.0], &[f64::NAN]).is_infinite());
+    assert!(rel(&[1.0, f64::INFINITY], &[1.0, 2.0]).is_infinite());
+    assert_eq!(rel(&[f64::NAN, 2.0], &[f64::NAN, 2.0]), 0.0);
+    assert_eq!(rel(&[3.0], &[2.0]), 0.5);
 }

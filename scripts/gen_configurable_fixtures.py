@@ -76,5 +76,5 @@ def run(case: str) -> None:
 
 if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
-    run("monthly")
-    run("weekly")
+    for case in ("monthly", "weekly", "single", "fallbacks"):
+        run(case)

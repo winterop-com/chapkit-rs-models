@@ -26,6 +26,23 @@ fn matches_chap_core_monthly_and_weekly() {
     .unwrap();
 }
 
+/// Short series where ratios run out, so the fallbacks for missing ratios decide the forecast:
+/// `single` is one location with January and February [1, 3], forecast two months (the second
+/// has no ratio at horizon 2 and must use the single ratio 2 at horizon 1, giving 7, not 3).
+#[test]
+fn matches_chap_core_when_ratios_run_out() {
+    for case in ["single", "fallbacks"] {
+        check_parity(
+            case,
+            "seasonal_shift_persistence",
+            &SeasonalShiftPersistence,
+            &NoConfig {},
+            Match::Exact,
+        )
+        .unwrap();
+    }
+}
+
 #[test]
 fn checkpoint_round_trip_keeps_predictions() {
     let ck = checkpoint_round_trip(&SeasonalShiftPersistence, &NoConfig {}).unwrap();

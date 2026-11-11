@@ -42,12 +42,11 @@ impl Model for SeasonalShiftPersistence {
         let by_location: BTreeMap<String, SeasonalShifts> = series
             .into_par_iter()
             .map(|(loc, s)| {
-                (
-                    loc,
-                    SeasonalShifts::from_cases(&s.values, &s.seasons(), max_horizon),
-                )
+                let shifts = SeasonalShifts::from_cases(&s.values, &s.seasons(), max_horizon)
+                    .ok_or_else(|| Error::model(format!("misaligned series for '{loc}'")))?;
+                Ok((loc, shifts))
             })
-            .collect();
+            .collect::<Result<_>>()?;
         Ok(SeasonalShiftTrained::new(by_location))
     }
 

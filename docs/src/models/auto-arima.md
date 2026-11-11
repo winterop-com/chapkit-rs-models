@@ -45,7 +45,7 @@ independently and samples are not clipped at zero, as in the original.
 
 | option | default | meaning |
 |---|---|---|
-| `n_samples` | `100` | draws per forecast period (fixed at 100 in the original) |
+| `n_samples` | `100` | draws per forecast period, at most 100,000 (fixed at 100 in the original) |
 | `seed` | not set | seeds the draws; not set, every run differs, as in the original |
 
 The original has no options of its own. Forecasts may be 0 to 12 periods long, as the original declares.
@@ -77,7 +77,7 @@ these means and sds; most months get some negative samples.
 | future data | the periods to forecast; only their number and position after the history are used |
 | configuration | see [Options](#options) |
 | output | `n_samples` samples per location and future period |
-| fails when | a location has no observed cases, no ARIMA can be fitted (where fable keeps a null model and forecasts missing values, for example "data follows a simple polynomial" on chapkit-rs's 50-week synthetic test data, which fable rejects too), a location to forecast was not trained or has no history, the data mixes monthly and weekly periods, or `n_samples` is 0 |
+| fails when | a location has no observed cases, no ARIMA can be fitted (where fable keeps a null model and forecasts missing values, for example "data follows a simple polynomial" on chapkit-rs's 50-week synthetic test data, which fable rejects too), a location to forecast was not trained or has no history, the data mixes monthly and weekly periods, `n_samples` is 0 or above 100,000, or a forecast would hold more than 250 million samples (future rows times `n_samples`) |
 
 A gap inside a location's series counts as missing values, which the ARIMA steps over (R's `NA`), as chap-core
 fills gaps before a model sees them.

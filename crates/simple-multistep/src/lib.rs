@@ -11,9 +11,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use chapkit::rng::Rng;
 use chapkit::{
-    AssessedStatus, Checkpoint, Column, DataFrame, Error, Model, ModelInfo, ModelMetadata, Param,
-    Period, PeriodType, PredictInput, Result, SearchSpace, Tensor, TensorData, TrainInput, cols,
-    locations::predict_by_location,
+    AssessedStatus, Checkpoint, Column, DataFrame, Diagnostic, Error, Model, ModelInfo,
+    ModelMetadata, Param, Period, PeriodType, PredictInput, Result, SearchSpace, Tensor,
+    TensorData, TrainInput, cols, locations::predict_by_location,
 };
 use rayon::prelude::*;
 use schemars::JsonSchema;
@@ -31,7 +31,8 @@ pub struct Config {
     #[serde(default = "default_n_target_lags")]
     pub n_target_lags: usize,
     /// Number of trajectory samples drawn per location at predict time.
-    #[serde(default = "default_n_samples")]
+    #[serde(default = "default_n_samples", deserialize_with = "n_samples")]
+    #[schemars(range(min = 1, max = MAX_N_SAMPLES))]
     pub n_samples: usize,
     /// Max depth of the underlying RandomForest regressor.
     #[serde(default = "default_rf_max_depth")]
@@ -40,7 +41,11 @@ pub struct Config {
     #[serde(default = "default_rf_min_samples_leaf")]
     pub rf_min_samples_leaf: usize,
     /// Number of trees in the RandomForest regressor (fixed at scikit-learn's 100 in the original).
-    #[serde(default = "default_rf_n_estimators")]
+    #[serde(
+        default = "default_rf_n_estimators",
+        deserialize_with = "rf_n_estimators"
+    )]
+    #[schemars(range(min = 1, max = MAX_RF_N_ESTIMATORS))]
     pub rf_n_estimators: usize,
     /// Seed for the forest and the sampling; random when not set, as in the original.
     #[serde(default)]
@@ -63,6 +68,43 @@ fn default_rf_n_estimators() -> usize {
     100
 }
 
+/// Most trajectories per location: a thousand times the default (the original's 100), well past
+/// any use of the samples, so that a configuration cannot ask for unbounded memory.
+pub const MAX_N_SAMPLES: usize = 100_000;
+
+/// Most trees: a hundred times scikit-learn's 100 and over thirty times the top of the search
+/// space (300). Time and memory grow with each tree; depth and leaf size need no bound, since a
+/// tree never has more nodes than twice its training rows.
+pub const MAX_RF_N_ESTIMATORS: usize = 10_000;
+
+/// Most samples one forecast may hold (future rows times `n_samples`): 2 GB of numbers. 100,000
+/// locations at 12 months and the default 100 samples take 120 million.
+pub const MAX_FORECAST_SAMPLES: usize = 250_000_000;
+
+/// Why `value` of option `name` is not in `1..=max`, if it is not.
+fn out_of_bounds(name: &str, value: usize, max: usize) -> Option<String> {
+    (!(1..=max).contains(&value))
+        .then(|| format!("{name} must be between 1 and {max}, got {value}"))
+}
+
+/// Reads a bounded option, rejecting it out of bounds as the configuration is stored.
+fn bounded<'de, D: serde::Deserializer<'de>>(
+    d: D,
+    name: &str,
+    max: usize,
+) -> std::result::Result<usize, D::Error> {
+    let value = usize::deserialize(d)?;
+    out_of_bounds(name, value, max).map_or(Ok(value), |p| Err(serde::de::Error::custom(p)))
+}
+
+fn n_samples<'de, D: serde::Deserializer<'de>>(d: D) -> std::result::Result<usize, D::Error> {
+    bounded(d, "n_samples", MAX_N_SAMPLES)
+}
+
+fn rf_n_estimators<'de, D: serde::Deserializer<'de>>(d: D) -> std::result::Result<usize, D::Error> {
+    bounded(d, "rf_n_estimators", MAX_RF_N_ESTIMATORS)
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -77,19 +119,40 @@ impl Default for Config {
 }
 
 impl Config {
-    fn check(&self) -> Result<()> {
-        for (name, value) in [
-            ("n_target_lags", self.n_target_lags),
-            ("n_samples", self.n_samples),
-            ("rf_max_depth", self.rf_max_depth),
-            ("rf_min_samples_leaf", self.rf_min_samples_leaf),
-            ("rf_n_estimators", self.rf_n_estimators),
-        ] {
-            if value == 0 {
-                return Err(Error::Config(format!("{name} must be at least 1")));
-            }
-        }
-        Ok(())
+    /// Why the configuration cannot be used, if it cannot; with `future_rows`, also for a
+    /// forecast of that many rows.
+    fn problem(&self, future_rows: Option<usize>) -> Option<String> {
+        let bounds = [
+            ("n_target_lags", self.n_target_lags, usize::MAX),
+            ("n_samples", self.n_samples, MAX_N_SAMPLES),
+            ("rf_max_depth", self.rf_max_depth, usize::MAX),
+            ("rf_min_samples_leaf", self.rf_min_samples_leaf, usize::MAX),
+            ("rf_n_estimators", self.rf_n_estimators, MAX_RF_N_ESTIMATORS),
+        ];
+        bounds
+            .into_iter()
+            .find_map(|(name, value, max)| out_of_bounds(name, value, max))
+            .or_else(|| {
+                let rows = future_rows?;
+                (rows.saturating_mul(self.n_samples) > MAX_FORECAST_SAMPLES).then(|| {
+                    format!(
+                        "{rows} future rows of {} samples are more than {MAX_FORECAST_SAMPLES} samples",
+                        self.n_samples
+                    )
+                })
+            })
+    }
+
+    fn diagnostics(&self, future_rows: Option<usize>) -> Vec<Diagnostic> {
+        self.problem(future_rows)
+            .map(|p| Diagnostic::error("invalid_option", p))
+            .into_iter()
+            .collect()
+    }
+
+    fn check(&self, future_rows: Option<usize>) -> Result<()> {
+        self.problem(future_rows)
+            .map_or(Ok(()), |p| Err(Error::Config(p)))
     }
 
     /// The seed of this call: the configured one, else a fresh one.
@@ -177,8 +240,16 @@ impl Model for SimpleMultistep {
         )
     }
 
+    fn validate_train(&self, config: &Config, _: TrainInput<'_>) -> Vec<Diagnostic> {
+        config.diagnostics(None)
+    }
+
+    fn validate_predict(&self, config: &Config, input: PredictInput<'_>) -> Vec<Diagnostic> {
+        config.diagnostics(Some(input.future.n_rows()))
+    }
+
     fn train(&self, config: &Config, input: TrainInput<'_>) -> Result<Trained> {
-        config.check()?;
+        config.check(None)?;
         let covariates = input.run.additional_continuous_covariates.clone();
         let target = self.info().target;
         let (names, rows) = training_set(input.data, &target, &covariates, config.n_target_lags)?;
@@ -215,7 +286,7 @@ impl Model for SimpleMultistep {
         config: &Config,
         input: PredictInput<'_>,
     ) -> Result<DataFrame> {
-        config.check()?;
+        config.check(Some(input.future.n_rows()))?;
         let state = &trained.state;
         let target = self.info().target;
         let tables = PredictTables::read(input.historic, input.future, &target, &state.covariates)?;

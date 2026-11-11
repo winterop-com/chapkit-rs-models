@@ -55,18 +55,23 @@ pub struct SeasonalShifts {
 
 impl SeasonalShifts {
     /// Training, for one location: all ratios for horizons 1 to `max_horizon`.
-    /// `cases` and `seasons` are aligned, one entry per period in time order.
-    pub fn from_cases(cases: &[f64], seasons: &[u32], max_horizon: usize) -> Self {
+    /// `cases` and `seasons` are aligned, one entry per period in time order; `None` when their
+    /// lengths differ.
+    pub fn from_cases(cases: &[f64], seasons: &[u32], max_horizon: usize) -> Option<Self> {
+        if cases.len() != seasons.len() {
+            return None;
+        }
         let mut by_horizon = BTreeMap::new();
         for h in 1..=max_horizon.min(cases.len().saturating_sub(1)) {
             // One list of ratios per season (1-52), indexed directly.
             let mut by_season: Vec<Vec<f64>> = vec![Vec::new(); 54];
-            for t in h..cases.len() {
-                let (now, before) = (cases[t], cases[t - h]);
+            // Each period `t` from `h` on, with the period `h` before it.
+            let pairs = cases.iter().skip(h).zip(cases).zip(seasons.iter().skip(h));
+            for ((now, before), season) in pairs {
                 let ratio = (now + 1.0) / (before + 1.0);
                 // A missing value on either side gives no ratio.
                 if ratio.is_finite()
-                    && let Some(list) = by_season.get_mut(seasons[t] as usize)
+                    && let Some(list) = by_season.get_mut(*season as usize)
                 {
                     list.push(ratio);
                 }
@@ -82,7 +87,7 @@ impl SeasonalShifts {
                 .collect();
             by_horizon.insert(h, by_season);
         }
-        Self { by_horizon }
+        Some(Self { by_horizon })
     }
 
     /// The ratios for a season and horizon, with fallback 1 (see [`for_season`]).
@@ -159,7 +164,8 @@ impl SeasonalShiftTrained {
     /// more than one ratio wins, else the first single ratio, else `[1]`.
     pub fn ratios(&self, location: &str, season: u32, horizon: usize) -> Vec<f64> {
         let own = self.by_location.get(location);
-        let mut first_single: Option<Option<Vec<f64>>> = None;
+        // The first single ratio met; a candidate without ratios is not one.
+        let mut first_single: Option<Vec<f64>> = None;
         for h in (1..=horizon).rev() {
             // The location's own ratios first, then all locations' (fallback 2).
             let own_ratios = own.map(|shifts| shifts.ratios(season, h));
@@ -167,15 +173,14 @@ impl SeasonalShiftTrained {
                 .into_iter()
                 .chain(std::iter::once_with(|| for_season(&self.pooled(h), season)))
             {
-                if ratios.as_ref().is_some_and(|r| r.len() > 1) {
-                    return ratios.unwrap_or_default();
-                }
-                if first_single.is_none() {
-                    first_single = Some(ratios);
+                match ratios {
+                    Some(r) if r.len() > 1 => return r,
+                    Some(r) if first_single.is_none() => first_single = Some(r),
+                    _ => {}
                 }
             }
         }
-        first_single.flatten().unwrap_or_else(|| vec![1.0])
+        first_single.unwrap_or_else(|| vec![1.0])
     }
 }
 
@@ -194,4 +199,17 @@ pub fn forecast(last_value: f64, ratios: &[f64]) -> Option<Vec<f64>> {
             .map(|r| ((last_value + 1.0) * r - 1.0).max(0.0))
             .collect(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_cases_rejects_misaligned_seasons() {
+        assert!(SeasonalShifts::from_cases(&[1.0, 3.0], &[], 1).is_none());
+        assert!(SeasonalShifts::from_cases(&[1.0, 3.0], &[1, 2, 3], 1).is_none());
+        let shifts = SeasonalShifts::from_cases(&[1.0, 3.0], &[1, 2], 1).unwrap();
+        assert_eq!(shifts.ratios(2, 1), Some(vec![2.0]));
+    }
 }
