@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "1.3.4"
+version = "1.3.5"
 edition = "2024"
 authors = ["Morten Hansen <morten@winterop.com>"]
 publish = false
@@ -12,7 +12,7 @@ publish = false
 # models build against the sibling checkout, whatever it holds. Moving to a new release also bumps
 # the version above, so the images built against it are published.
 [workspace.metadata.chapkit-rs]
-version = "0.7.0"
+version = "0.7.1"
 
 [workspace.dependencies]
 # The library, from the sibling checkout (chap-workspace/rs/chapkit-rs).
