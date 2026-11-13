@@ -558,8 +558,7 @@ impl PredictTables {
             .both
             .locations
             .get(location)
-            .map(|r| r.on_grid(&self.both.grid))
-            .unwrap_or_default();
+            .map_or_default(|r| r.on_grid(&self.both.grid));
         let covariates = periods
             .iter()
             .map(|period| {

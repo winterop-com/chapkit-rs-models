@@ -53,10 +53,7 @@ impl Model for Persistence {
     ) -> Result<DataFrame> {
         let historic = series_by_location(input.historic, &self.info().target)?;
         predict_by_location(input.future, N_SAMPLES, |loc, rows| {
-            let cases = historic
-                .get(loc)
-                .map(|s| s.values.as_slice())
-                .unwrap_or_default();
+            let cases = historic.get(loc).map_or_default(|s| s.values.as_slice());
             let (last_value, since_last) = model::last_observed(cases).ok_or_else(|| {
                 Error::invalid(format!(
                     "no observed disease_cases for location '{loc}' in the historic data"

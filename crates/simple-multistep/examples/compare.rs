@@ -79,8 +79,7 @@ impl Args {
                 .into(),
             future: get("--future").map(PathBuf::from),
             covariates: get("--covariates")
-                .map(|c| c.split(',').map(str::to_owned).collect())
-                .unwrap_or_default(),
+                .map_or_default(|c| c.split(',').map(str::to_owned).collect()),
             runs: count("--runs")?,
             python_runs: count("--python-runs")?,
         })
